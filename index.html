@@ -96,7 +96,7 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={},cas={},relJ="",curRel={},wT=0,pT=0,fT=0,hW=false,hP=false,lt2=null;try{curRel=JSON.parse(localStorage.rymap_rel||"{}")}catch(e){}try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
+var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={},cas={},relJ="",curRel={},wT=0,pT=0,fT=0,hW=false,hP=false,lt2=null;try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.removeItem("rymap_world");localStorage.removeItem("rymap_rel");localStorage.removeItem("atlas2")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);myNid=hid(myUid);
 function hid(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return(h>>>0)%2000000000+1000}
 function canDraw(){return online&&ready&&!(myObj&&objs.indexOf(myObj)>=0)}
 function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[]}}
@@ -697,10 +697,11 @@ function showSheet(){
   sheet.className="glass show";var o=sel,h="";
   if(!o.founded){sheet.innerHTML='<div class="sh"><h3>新しい国</h3><button data-a="del">取消</button></div><div class="lbl">国名をつけて建国しましょう(人口2からスタート)</div><input id="nm" placeholder="国名" value="'+esc(o.name)+'"><div class="row" style="margin-top:8px"><button data-a="found" class="pri">建国する</button></div>';return}
   if(!editing){
-    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+((online&&(isHost||o.mine))?'<button data-a="del" class="danger">削除</button>':'')+'<button data-a="x">✕</button></div>'+pwHTML(o)+'<div id="live">'+liveHTML(o)+'</div>';
+    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+'<button data-a="x">✕</button></div>'+pwHTML(o)+'<div id="live">'+liveHTML(o)+'</div>';
     if(tblHas(o)){h+="<table>";o.tbl.forEach(function(r,i){h+="<tr>"+r.map(function(c){return(i?"<td>":"<th>")+esc(c)+(i?"</td>":"</th>")}).join("")+"</tr>"});h+="</table>"}
     if(o.note)h+='<div class="note">'+esc(o.note)+"</div>";
     if(!tblHas(o)&&!o.note)h+='<div class="lbl">「編集」から名前・表・詳細を追加できます</div>';
+    if(online&&(isHost||o.mine))h+='<button data-a="del" class="danger" style="width:100%;margin-top:10px;padding:12px">'+(o._arm&&Date.now()<o._arm?"⚠ もう一度押すと削除":"🗑 この国を削除")+'</button>';
   }else{
     h='<div class="sh"><input id="nm" placeholder="名前" value="'+esc(o.name)+'"><button data-a="done" class="pri">完了</button></div><div class="lbl">表</div><table>';
     o.tbl.forEach(function(r,i){h+="<tr>"+r.map(function(c,j){return'<td class="e"><input data-r="'+i+'" data-c="'+j+'" value="'+esc(c)+'"></td>'}).join("")+"</tr>"});
@@ -710,7 +711,7 @@ function showSheet(){
   sheet.innerHTML=h;if(!editing)updPw(o);
 }
 sheet.addEventListener("click",function(e){
-  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(a==="del"&&sel.founded&&!(sel._arm&&Date.now()<sel._arm)){sel._arm=Date.now()+4000;say("もう一度「削除」を押すと「"+(sel.name||"この国")+"」を削除します");return}if(online&&!sel.mine&&a!=="x"&&!(a==="del"&&isHost)){say("他のプレイヤーの国は操作できません");return}
+  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(a==="del"&&sel.founded&&!(sel._arm&&Date.now()<sel._arm)){var so=sel;so._arm=Date.now()+4000;say("もう一度押すと「"+(so.name||"この国")+"」を削除します");showSheet();setTimeout(function(){if(sel===so)showSheet()},4100);return}if(online&&!sel.mine&&a!=="x"&&!(a==="del"&&isHost)){say("他のプレイヤーの国は操作できません");return}
   if(a==="x"){sel=null;hsel=null}
   else if(a==="edit"){editing=true}
   else if(a==="done"){editing=false}
@@ -719,12 +720,12 @@ sheet.addEventListener("click",function(e){
   else if(a==="ac"){t.forEach(function(r,i){r.push(i?"":"項目")})}
   else if(a==="dc"){if(t[0].length>1)t.forEach(function(r){r.pop()})}
   else if(a==="up"){var uk=bt.getAttribute("data-k"),uc=cost(sel[uk]);if(sel[uk]<10&&sel.pw>=uc){sel.pw-=uc;sel[uk]++;say("⬆ "+sel.name+"の"+({civ:"文明",mil:"軍事力",edu:"教育"})[uk]+"が Lv"+sel[uk]+" に上がった")}}
-  else if(a==="build"){var bc=bCost(sel);if(sel.founded&&canBuild(sel)&&sel.pw>=bc){sel.pw-=bc;addHouse(sel,0);say("🔨 "+sel.name+"で新しい家の建築が始まった")}}
+  else if(a==="build"){var bcs=bCost(sel);if(sel.founded&&canBuild(sel)&&sel.pw>=bcs){sel.pw-=bcs;addHouse(sel,0);say("🔨 "+sel.name+"で新しい家の建築が始まった")}}
   else if(a==="reno"){var hs=selObj(sel);if(canReno(sel,hs)){var rc=upCost(hs);if(sel.pw>=rc){sel.pw-=rc;hs.lv=Math.floor(hs.lv)+1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say((hs.t?FT[hs.t].e:"🏠")+" "+selName(hs)+"がLv"+hs.lv+"に改築された")}}}
   else if(a==="fbuild"){var ft=bt.getAttribute("data-k"),fc=fCost(sel,ft);if(sel.founded&&fCanBuild(sel,ft)&&sel.pw>=fc){sel.pw-=fc;addFac(sel,ft,0);say(FT[ft].e+" "+sel.name+"で"+FT[ft].n+"の建設が始まった")}}
   else if(a==="auto"){sel.auto=!sel.auto;say(sel.auto?"🤖 "+sel.name+"は家を自動で運営する":"🧑 "+sel.name+"の家は手動運営")}
   else if(a==="found"){var nmv=sheet.querySelector("#nm");sel.name=(nmv&&nmv.value.trim())||"国"+sel.id;sel.founded=true;sel.pop=2;sel.people=[];sel.auto=false;say("🏳 "+sel.name+"が建国された");editing=false;pushNow(true)}
-  else if(a==="del"){var did=sel.id;if(sel.mine){if(sel.founded){delete world[myUid];saveWorld();bc({t:"d",u:myUid})}myObj=null;lastJ=""}else if(online&&isHost&&sel.uid){delete world[sel.uid];saveWorld();bc({t:"d",u:sel.uid})}objs.splice(objs.indexOf(sel),1);objs.forEach(function(o){if(o.ruler===did)o.ruler=null});sel=null;editing=false}
+  else if(a==="del"){var did=sel.id;if(sel.mine){if(sel.founded){delete world[myUid];saveWorld();bc({t:"d",u:myUid})}myObj=null;lastJ=""}else if(online&&isHost&&sel.uid){delete world[sel.uid];saveWorld();bc({t:"d",u:sel.uid})}objs.splice(objs.indexOf(sel),1);wars=wars.filter(function(w){return w.a!==did&&w.b!==did});objs.forEach(function(o){if(o.ruler===did)o.ruler=null});sel=null;editing=false}
   save();showSheet();render();
 });
 sheet.addEventListener("input",function(e){
