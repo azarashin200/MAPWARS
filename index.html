@@ -74,6 +74,11 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 .wr{padding:3px 0;border-bottom:1px solid var(--line)}.wr i{font-style:normal;color:var(--sub);margin-right:6px;font-size:10.5px}
 .wr.sea{color:#3e7bfa}.wr.land{color:#e5484d}.wr.win{font-weight:800}
 #net{position:absolute;top:66px;right:10px;width:min(340px,86%);padding:10px;display:none;z-index:3;touch-action:pan-y;-webkit-user-select:text;user-select:text;max-height:70vh;overflow:auto}#net.show{display:block}#net h4{margin:0 0 6px;font-size:13px;display:flex;align-items:center;justify-content:space-between}#net textarea{height:72px;font-size:10px;word-break:break-all}#net button{margin:2px 2px 2px 0}
+#mine{position:absolute;left:10px;top:66px;width:300px;padding:12px;display:none;max-height:calc(100% - 150px);overflow:auto;touch-action:pan-y;z-index:2;-webkit-user-select:none;user-select:none}
+#mine.show{display:block}
+#mine .sh h3{font-size:15px}
+body.wm #sheet,body.wm #cmd{left:330px}
+body.wm #log{left:330px}
 @media (max-width:520px){#hint{display:none}.logo{display:none}#top{gap:2px;padding:6px}#top button{padding:8px 6px;font-size:12px}}
 #decl{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 45%,rgba(160,16,24,.94),rgba(60,4,8,.97));color:#fff;text-align:center;padding:28px;box-sizing:border-box;-webkit-user-select:none;user-select:none;touch-action:manipulation;cursor:pointer}
 #decl.show{display:flex;animation:dclIn .4s ease-out}
@@ -102,6 +107,7 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 <div id="stage">
   <canvas id="cv"></canvas>
   <div id="top" class="glass"><div class="logo">RYUMAP<b>.</b></div><div id="hint"></div><div id="who" style="font-size:11.5px;color:var(--sub);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">未接続</div><button id="fwar" style="display:none">⚔強制戦争</button><button id="fbt" style="display:none">🗡強制裏切り</button><button id="netb">🌐接続</button><button id="dvb">🪖師団</button><button id="wlb">戦況</button><button id="spd">⏩×1</button><button id="bgb">背景</button><button id="home">中央</button></div><div id="bgp" class="glass"></div><div id="wlp" class="glass"></div><div id="net" class="glass"></div><div id="dvp" class="glass"></div><div id="log"></div>
+  <div id="mine" class="glass"></div>
   <div id="sheet" class="glass"></div>
   <div id="cmd" class="glass"></div>
   <div id="dock" class="glass">
@@ -401,7 +407,13 @@ function forceWar(a,b){var ra=root(a),rb=root(b);if(ra===rb){say("同じ勢力�
   wars=wars.filter(function(w){if(w.a===ra.id||w.b===ra.id||w.a===rb.id||w.b===rb.id){endWar(w,"強制戦争のため中断");return false}return true});
   var nw={a:ra.id,b:rb.id,t:0,U:[],nid:0,land:wc.land};wars.push(nw);startWar(nw);fxDecl(byId(nw.a));fxDecl(byId(nw.b));say("⚔ 強制戦争："+ra.name+" vs "+rb.name)}
 function betray(o){if(!o.ruler)return false;var old=byId(o.ruler),rr=old?root(old):null;o.ruler=null;leaveWars(o);
-  if(rr){fr[key(o.id,rr.id)]=0;wlog.push({t:"",m:"🗡 "+o.name+"が宗主国"+rr.name+"を裏切り独立",k:"win"});say("🗡 "+o.name+"が"+rr.name+"を裏切った");forceWar(o,rr)}return true}
+  if(rr){fr[key(o.id,rr.id)]=0;wl(null,"🗡 "+o.name+"が宗主国"+rr.name+"を裏切り独立","win");say("🗡 "+o.name+"が"+rr.name+"を裏切った");forceWar(o,rr)}return true}
+/* 支配された国の裏切り挑戦：国力MAXで全国力を消費し、1〜100の乱数が70以上なら成功 */
+function rebel(o){if(!o||!o.ruler){say("支配下ではありません");return}
+  if((o.pw||0)<199.999){say("国力がMAXのときだけ挑戦できます");return}
+  o.pw=0;var d=1+Math.floor(Math.random()*100);
+  if(d>=70){say("🎲 "+d+"（70以上）裏切り成功！");if(isHost||!peers.length)betray(o);else bc({t:"bt",u:uidOf(o)})}
+  else say("🎲 "+d+"（70未満）失敗…国力を失った")}
 function pickHit(o){
   if(pickMode==="betray"){if(!o.ruler){say(o.name+"は支配下にない");return}betray(o);setPick(null)}
   else if(pickMode==="war"){var r=root(o);if(pickList.length&&pickList[0]===r){say("別の勢力を選んで");return}pickList.push(r);
@@ -754,25 +766,26 @@ function drawShip(s,u){var sc=shipSc(u),L=10*sc,H=6*sc,x=s.x,y=s.y,fs=ctx.fillSt
   ctx.fillStyle=fs}
 function cost(l){return 20+10*l}
 var UP=[["civ","文明"],["mil","軍事力"],["edu","教育"]];
-function pwHTML(o){var h='<div class="gauge"><u id="gu"></u><span id="gt"></span></div><div class="ups">';
-  UP.forEach(function(u){h+='<button data-a="up" data-k="'+u[0]+'" id="b-'+u[0]+'"><span class="n">'+u[1]+'</span><span class="l"></span><span class="c"></span></button>'});
-  return h+'</div><div class="ups"><button data-a="build" id="b-house"><span class="n">🏠 家を建てる</span><span class="l"></span><span class="c"></span></button><button data-a="reno" id="b-reno"><span class="n">🔨 改築</span><span class="l"></span><span class="c"></span></button><button data-a="auto" id="b-auto"><span class="n">🤖 自動運営</span><span class="l"></span><span class="c"></span></button></div><div class="ups"><button data-a="fbuild" data-k="f" id="b-farm"><span class="n">🌾 農地を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="m" id="b-mine"><span class="n">⛏ 鉱山を作る</span><span class="l"></span><span class="c"></span></button></div>'}
-function updHouseBtns(o){var H=o.houses||[],b=$("b-house"),r=$("b-reno"),a=$("b-auto"),hs=selObj(o);
+function pwHTML(o,p){p=p||"";var h='<div class="gauge"><u id="gu'+p+'"></u><span id="gt'+p+'"></span></div><div class="ups">';
+  UP.forEach(function(u){h+='<button data-a="up" data-k="'+u[0]+'" id="b-'+u[0]+p+'"><span class="n">'+u[1]+'</span><span class="l"></span><span class="c"></span></button>'});
+  return h+'</div><div class="ups"><button data-a="build" id="b-house'+p+'"><span class="n">🏠 家を建てる</span><span class="l"></span><span class="c"></span></button><button data-a="reno" id="b-reno'+p+'"><span class="n">🔨 改築</span><span class="l"></span><span class="c"></span></button><button data-a="auto" id="b-auto'+p+'"><span class="n">🤖 自動運営</span><span class="l"></span><span class="c"></span></button></div><div class="ups"><button data-a="fbuild" data-k="f" id="b-farm'+p+'"><span class="n">🌾 農地を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="m" id="b-mine'+p+'"><span class="n">⛏ 鉱山を作る</span><span class="l"></span><span class="c"></span></button></div>'}
+function updHouseBtns(o,p){p=p||"";var H=o.houses||[],b=$("b-house"+p),r=$("b-reno"+p),a=$("b-auto"+p),hs=selObj(o);
   if(b){var mx=!canBuild(o),c=bCost(o);b.querySelector(".l").textContent=H.length+" / "+houseCap(o);b.querySelector(".c").textContent=mx?"上限（文明Lvで増加）":"消費 "+c;b.disabled=mx||o.pw<c}
-  [["f","b-farm"],["m","b-mine"]].forEach(function(e){var fb=$(e[1]);if(!fb)return;var t=e[0],mx2=!fCanBuild(o,t),fc=fCost(o,t);fb.querySelector(".l").textContent=facs(o,t).length+" / "+FT[t].cap(o);fb.querySelector(".c").textContent=mx2?"上限（文明Lvで増加）":"消費 "+fc;fb.disabled=mx2||o.pw<fc});
+  [["f","b-farm"],["m","b-mine"]].forEach(function(e){var fb=$(e[1]+p);if(!fb)return;var t=e[0],mx2=!fCanBuild(o,t),fc=fCost(o,t);fb.querySelector(".l").textContent=facs(o,t).length+" / "+FT[t].cap(o);fb.querySelector(".c").textContent=mx2?"上限（文明Lvで増加）":"消費 "+fc;fb.disabled=mx2||o.pw<fc});
   if(r){var l=r.querySelector(".l"),c2=r.querySelector(".c");if(!hs){l.textContent="—";c2.textContent="家・農地・鉱山をタップ";r.disabled=true}
     else{var lv=Math.floor(hs.lv);l.textContent=selName(hs)+" Lv"+lv+(lv<10?" → "+(lv+1):"");if(hs.b<1){c2.textContent="建築中";r.disabled=true}else if(lv>=10){c2.textContent="MAX";r.disabled=true}else if(lv>=(o.civ||1)){c2.textContent="文明Lvが必要";r.disabled=true}else{var rc=upCost(hs);c2.textContent="消費 "+rc;r.disabled=o.pw<rc}}}
   if(a){a.querySelector(".l").textContent=o.auto?"ON":"OFF";a.querySelector(".c").textContent="建築・改築を自動で"}}
-function updPw(o){var g=$("gu");if(!g)return;g.style.width=(o.pw/2)+"%";$("gt").textContent="国力 "+Math.floor(o.pw)+" / 200";
-  UP.forEach(function(u){var b=$("b-"+u[0]),l=o[u[0]],mx=l>=10,c=cost(l);b.querySelector(".l").textContent="Lv"+l;b.querySelector(".c").textContent=mx?"MAX":"消費 "+c;b.disabled=mx||o.pw<c});updHouseBtns(o)}
+function updPw(o,p){p=p||"";var g=$("gu"+p);if(!g)return;g.style.width=(o.pw/2)+"%";$("gt"+p).textContent="国力 "+Math.floor(o.pw)+" / 200";
+  UP.forEach(function(u){var b=$("b-"+u[0]+p),l=o[u[0]],mx=l>=10,c=cost(l);b.querySelector(".l").textContent="Lv"+l;b.querySelector(".c").textContent=mx?"MAX":"消費 "+c;b.disabled=mx||o.pw<c});updHouseBtns(o,p)}
 function liveHTML(o){var r=root(o),h='<div class="lbl">人口 <b>'+popN(o.pop)+'</b>　'+(o.ruler?esc(r.name)+'の支配下':'独立国');
   if(!o.ruler&&allPop(o)>o.pop+.5)h+='（支配下を含め '+popN(allPop(o))+'）';
   h+='</div><div class="lbl">'+houseTxt(o)+'</div><div class="lbl">'+facTxt(o)+'</div><div class="lbl">'+divTxt(o)+'</div><div class="lbl">友好度</div>';var any=0;
   objs.forEach(function(p){if(p===o||!p.founded)return;any=1;var f=getFr(o.id,p.id);h+='<div class="frr"><span>'+esc(p.name?dn(p):"?")+(p.ruler?'（支配下）':'')+'</span><i><u style="width:'+f+'%"></u></i><b>'+Math.round(f)+'</b></div>'});
+  if(o.ruler&&(!online||o.mine)){var mx=(o.pw||0)>=199.999;h+='<div class="lbl">反乱</div><button data-a="reb" class="danger"'+(mx?'':' disabled')+' style="width:100%">🗡 裏切りに挑戦（'+(mx?'国力MAX：全消費・1〜100で70以上で成功':'国力MAXで解放 '+Math.floor(o.pw||0)+' / 200')+'）</button>'}
   return h+(any?'':'<div class="lbl">他の国はまだありません</div>')}
 function loop(t){var dt=Math.min(.1,(t-(lastT||t))/1000);lastT=t;try{smoothW(dt);netTick(t);sim(dt*speed,dt);walk(dt);fxStep(dt);render();if(t-dvLast>700){dvLast=t;drawDv(false)}}catch(err){if(!loop.e){loop.e=1;say("エラー: "+err.message)}}
   if(pushT&&Date.now()>pushT){pushT=0;pushNow()}if(t-saveT>10000){saveT=t;pushNow()}
-  if(t-liveT>500){liveT=t;if(usel){if(usel.u.dead||wars.indexOf(usel.w)<0)closeCmd();else updCmd()}var Lv=$("live");if(Lv&&sel&&sel.founded&&!editing){Lv.innerHTML=liveHTML(sel);updPw(sel)}}
+  if(t-liveT>500){liveT=t;updMine();if(usel){if(usel.u.dead||wars.indexOf(usel.w)<0)closeCmd();else updCmd()}var Lv=$("live");if(Lv&&sel&&sel.founded&&!editing){Lv.innerHTML=liveHTML(sel);updPw(sel)}}
   requestAnimationFrame(loop)}
 function h2r(h){var n=parseInt(h.slice(1),16);return[n>>16,n>>8&255,n&255]}
 function r2h(r){return"#"+r.map(function(v){return("0"+(v|0).toString(16)).slice(-2)}).join("")}
@@ -816,11 +829,12 @@ function tap(p){
 /* ポップアップ */
 function tblHas(o){return o.tbl.some(function(r,i){return i>0&&r.some(function(c){return c})})}
 function showSheet(){
+  updMine();
   if(!sel){hsel=null;sheet.className="glass";return}
   sheet.className="glass show";var o=sel,h="";
   if(!o.founded){sheet.innerHTML='<div class="sh"><h3>新しい国</h3><button data-a="del">取消</button></div><div class="lbl">国名をつけて建国しましょう(人口2からスタート)</div><input id="nm" placeholder="国名" value="'+esc(o.name)+'"><div class="row" style="margin-top:8px"><button data-a="found" class="pri">建国する</button></div>';return}
   if(!editing){
-    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+declBtn(o)+'<button data-a="x">✕</button></div>'+pwHTML(o)+'<div id="live">'+liveHTML(o)+'</div>';
+    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+declBtn(o)+'<button data-a="x">✕</button></div>'+(minePanelOn()?'':pwHTML(o))+'<div id="live">'+liveHTML(o)+'</div>';
     if(tblHas(o)){h+="<table>";o.tbl.forEach(function(r,i){h+="<tr>"+r.map(function(c){return(i?"<td>":"<th>")+esc(c)+(i?"</td>":"</th>")}).join("")+"</tr>"});h+="</table>"}
     if(o.note)h+='<div class="note">'+esc(o.note)+"</div>";
     if(!tblHas(o)&&!o.note)h+='<div class="lbl">「編集」から名前・表・詳細を追加できます</div>';
@@ -830,13 +844,14 @@ function showSheet(){
     h+='</table><div class="row"><button data-a="ar">＋行</button><button data-a="dr">－行</button><button data-a="ac">＋列</button><button data-a="dc">－列</button></div>';
     h+='<div class="lbl">色</div>'+rgbHTML(o.color||"#a8aeb7","o");h+='<div class="lbl">詳細</div><textarea id="nt" placeholder="詳細メモ">'+esc(o.note)+'</textarea><button data-a="del" class="danger">この図形を削除</button>';
   }
-  sheet.innerHTML=h;if(!editing)updPw(o);
+  sheet.innerHTML=h;if(!editing&&!minePanelOn())updPw(o);
 }
 sheet.addEventListener("click",function(e){
   var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(online&&!sel.mine&&a!=="x"&&a!=="decl"){say("他のプレイヤーの国は操作できません");return}
   if(a==="x"){sel=null;hsel=null}
   else if(a==="edit"){editing=true}
   else if(a==="decl"){declareWar(sel)}
+  else if(a==="reb"){rebel(sel)}
   else if(a==="done"){editing=false}
   else if(a==="ar"){t.push(t[0].map(function(){return""}))}
   else if(a==="dr"){if(t.length>1)t.pop()}
@@ -859,6 +874,22 @@ sheet.addEventListener("input",function(e){
   save();render();
 });
 
+
+/* ===== 広い画面：自国の国力ゲージ・強化・建築ボタンを常時表示 ===== */
+var mineId=null;
+function minePanelOn(){return window.innerWidth>=900&&!!myObj&&myObj.founded&&objs.indexOf(myObj)>=0}
+function updMine(){var p=$("mine"),o=myObj;
+  if(!minePanelOn()){if(p.classList.contains("show")){p.className="glass";p.innerHTML="";mineId=null;document.body.classList.remove("wm");if(sel&&sel.founded&&!editing)showSheet()}return}
+  document.body.classList.add("wm");
+  if(!p.classList.contains("show")||mineId!==o){p.className="glass show";p.innerHTML='<div class="sh"><h3 id="mnm"></h3></div>'+pwHTML(o,"m");mineId=o;if(sel===o&&!editing)showSheet()}
+  var h=$("mnm");if(h)h.textContent="👑 "+(o.name||"自国");updPw(o,"m")}
+$("mine").addEventListener("click",function(e){var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a"),o=myObj;if(!a||!o||!o.founded)return;
+  if(a==="up"){var uk=bt.getAttribute("data-k"),uc=cost(o[uk]);if(o[uk]<10&&o.pw>=uc){o.pw-=uc;o[uk]++;say("⬆ "+o.name+"の"+({civ:"文明",mil:"軍事力",edu:"教育"})[uk]+"が Lv"+o[uk]+" に上がった")}}
+  else if(a==="build"){var bc2=bCost(o);if(canBuild(o)&&o.pw>=bc2){o.pw-=bc2;addHouse(o,0);say("🔨 "+o.name+"で新しい家の建築が始まった")}}
+  else if(a==="reno"){var hs=selObj(o);if(canReno(o,hs)){var rc=upCost(hs);if(o.pw>=rc){o.pw-=rc;hs.lv=Math.floor(hs.lv)+1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say((hs.t?FT[hs.t].e:"🏠")+" "+selName(hs)+"がLv"+hs.lv+"に改築された")}}}
+  else if(a==="fbuild"){var ft=bt.getAttribute("data-k"),fc=fCost(o,ft);if(fCanBuild(o,ft)&&o.pw>=fc){o.pw-=fc;addFac(o,ft,0);say(FT[ft].e+" "+o.name+"で"+FT[ft].n+"の建設が始まった")}}
+  else if(a==="auto"){o.auto=!o.auto;say(o.auto?"🤖 "+o.name+"は家を自動で運営する":"🧑 "+o.name+"の家は手動運営")}
+  save();updMine();render()});
 /* UI */
 function setTool(t){if(t==="pen"&&!canDraw()){say(!online?"ログインすると国を作れます":!ready?"読み込み中です":"国は1人1つまでです");t="select"}tool=t;[].forEach.call(document.querySelectorAll("[data-t]"),function(b){b.classList.toggle("on",b.getAttribute("data-t")===t)});$("hint").textContent=HINT[t];cv.style.cursor=t==="select"?"grab":"crosshair"}
 function updUI(){$("back").disabled=!cur.length;$("close").disabled=cur.length<3;$("drop").disabled=!cur.length}
@@ -875,7 +906,7 @@ function bgPanel(){$("bgp").innerHTML='<h4>背景色</h4>'+rgbHTML(bg,"bg")+'<bu
 $("bgb").onclick=function(){$("wlp").classList.remove("show");var p=$("bgp");p.classList.toggle("show");if(p.classList.contains("show"))bgPanel()};
 $("bgp").addEventListener("input",function(e){if(e.target.hasAttribute("data-ch")){bg=onRGB(e.target);save();render()}});
 $("bgp").addEventListener("click",function(e){if(e.target.id==="bgr"){bg="#f6f8fb";bgPanel();save();render()}});
-window.addEventListener("resize",resize);
+window.addEventListener("resize",function(){resize();updMine();showSheet()});
 
 setTool("select");updUI();resize();home();requestAnimationFrame(loop);
 
@@ -907,6 +938,7 @@ function onNet(m,dc){
   else if(m.t==="d"){removeOne(m.u);saveWorld();if(isHost)bc(m,dc)}
   else if(m.t==="wd"){startDecl(m.a,m.b);if(isHost)bc(m,dc)}
   else if(m.t==="od"){recvOrd(m);if(isHost)bc(m,dc)}
+  else if(m.t==="bt"){if(isHost){var bo=uObj(m.u);if(bo&&bo.ruler)betray(bo)}}
   else if(m.t==="W"){if(!isHost)applyW(m)}
   else if(m.t==="L"){if(!isHost){wlog.push({t:m.x,m:m.m,k:m.k});if(wlog.length>400)wlog.shift();drawWl()}}
   else if(m.t==="ls"){if(m.u===myUid&&myObj)loss(myObj,{i:m.i},m.n)}
