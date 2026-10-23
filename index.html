@@ -889,7 +889,9 @@ function removeOne(id){var o=byId(hid(id));if(o&&o!==myObj)objs.splice(objs.inde
 var NP=$("net"),ns={m:"home",code:""},hostPc=null;
 function enc(d){return btoa(JSON.stringify(d))}
 function dec(s){return JSON.parse(atob(s.replace(/\s/g,"")))}
-function mkPc(){return new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]})}
+function mkPc(){var pc=new RTCPeerConnection({iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun.cloudflare.com:3478"]}]});
+  pc.oniceconnectionstatechange=function(){var st=pc.iceConnectionState;if(st==="checking")say("🌐 接続を試行中…");else if(st==="failed")say("❌ 接続失敗：回線(NAT)の都合で直接つなげません。同じWi-Fiに入るか、片方のスマホをテザリングにしてみてください");else if(st==="disconnected")say("⚠ 接続が不安定です")};
+  return pc}
 function gathered(pc){return new Promise(function(r){if(pc.iceGatheringState==="complete")return r();var t=setTimeout(r,6000);pc.onicegatheringstatechange=function(){if(pc.iceGatheringState==="complete"){clearTimeout(t);r()}}})}
 function wire(dc){
   dc.onopen=function(){peers.push(dc);ns.m="home";netUI();say("🌐 友達とつながりました");if(isHost)dc.send(JSON.stringify({t:"all",w:world}));else pushNow(true)};
@@ -913,7 +915,7 @@ function bindNet(){
     try{
       if(n==="b"){ns.m="home";netUI()}
       else if(n==="h"){ns.m="コード作成中…（数秒）";netUI();isHost=true;var pc=hostPc=mkPc(),dc=pc.createDataChannel("g");wire(dc);await pc.setLocalDescription(await pc.createOffer());await gathered(pc);ns.code=enc(pc.localDescription);ns.m="hw";netUI()}
-      else if(n==="ha"){var c=$("na").value;if(!c.trim())return;await hostPc.setRemoteDescription(dec(c));ns.m="接続中…";netUI()}
+      else if(n==="ha"){var c=$("na").value;if(!c.trim()){say("返信コードを貼ってください");return}if(!hostPc||hostPc.signalingState!=="have-local-offer"){say("先に「招待コードを作る」からやり直してください");return}await hostPc.setRemoteDescription(dec(c));ns.m="接続中…";netUI()}
       else if(n==="j"){ns.m="jw";netUI()}
       else if(n==="ja"){var c2=$("na").value;if(!c2.trim())return;ns.m="返信コード作成中…（数秒）";netUI();isHost=false;var p2=mkPc();p2.ondatachannel=function(ev){wire(ev.channel)};await p2.setRemoteDescription(dec(c2));await p2.setLocalDescription(await p2.createAnswer());await gathered(p2);ns.code=enc(p2.localDescription);ns.m="jc";netUI()}
       else if(n==="cp"){var ta=$("nc");ta.select();try{await navigator.clipboard.writeText(ta.value)}catch(x){document.execCommand("copy")}say("コピーしました")}
