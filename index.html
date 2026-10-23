@@ -503,20 +503,45 @@ $("decl").addEventListener("click",function(){if(declCur&&Date.now()-declT0>700)
 /* ===== 戦争エフェクト ===== */
 var FX=[],fxT=0;
 function fxAdd(o){if(FX.length<1600){o.t=0;FX.push(o)}return o}
-var fxSh=0;function fxShake(a){fxSh=Math.min(16,Math.max(fxSh,a))}
+var fxSh=0;function fxShake(a){}/* 画面揺れは無効 */
 function fxR(a,b){return a+Math.random()*(b-a)}
 function crossSw(x,y,r,c,lw){ctx.save();ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(x-r,y-r);ctx.lineTo(x+r,y+r);ctx.moveTo(x+r,y-r);ctx.lineTo(x-r,y+r);ctx.stroke();ctx.restore()}
 function fxStep(dt){fxT+=dt;if(fxSh>.25){fxSh*=Math.max(0,1-7*dt);cv.style.transform="translate("+fxR(-fxSh,fxSh).toFixed(1)+"px,"+fxR(-fxSh,fxSh).toFixed(1)+"px)"}else if(fxSh){fxSh=0;cv.style.transform=""}for(var i=FX.length-1;i>=0;i--){var p=FX[i];p.t+=dt;
   if(p.t>=p.T){if(p.hit)p.hit(p);FX.splice(i,1);continue}
   if(p.vx!=null){p.ox=(p.ox||0)+p.vx*dt;p.oy=(p.oy||0)+p.vy*dt;if(p.dr){var f=Math.max(0,1-p.dr*dt);p.vx*=f;p.vy*=f}if(p.g)p.vy+=p.g*dt}}}
 function fxSmoke(x,y,c,a0,r0,r1,T,vy,spread){fxAdd({k:"sm",x:x,y:y,ox:fxR(-3,3),oy:0,vx:fxR(-spread,spread),vy:-vy*fxR(.6,1.2),c:c,a0:a0,r0:r0,r1:r1,T:T})}
+/* ===== 効果音（WebAudioで合成。外部ファイル不要） ===== */
+var AC=null,SFXON=true,sfxLast={},sfxM=null,NB=null;
+function sfxInit(){if(AC)return AC;try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();sfxM=AC.createGain();sfxM.gain.value=.4;var cp=AC.createDynamicsCompressor();sfxM.connect(cp);cp.connect(AC.destination);NB=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);var d=NB.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){AC=null}return AC}
+["pointerdown","keydown","touchstart"].forEach(function(ev){window.addEventListener(ev,function(){sfxInit();if(AC&&AC.state==="suspended")AC.resume()},{passive:true})});
+function sfxOK(k,gap){if(!SFXON||!AC||AC.state!=="running")return false;var t=AC.currentTime;if(t-(sfxLast[k]||0)<gap)return false;sfxLast[k]=t;return true}
+function nz(t,dur,f0,f1,type,g,q){var s=AC.createBufferSource();s.buffer=NB;s.loop=true;var f=AC.createBiquadFilter();f.type=type;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);if(q)f.Q.value=q;var a=AC.createGain();a.gain.setValueAtTime(g,t);a.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(a);a.connect(sfxM);s.start(t,Math.random());s.stop(t+dur+.02)}
+function tn(t,dur,f0,f1,type,g,att){var o=AC.createOscillator();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);var a=AC.createGain();att=att||.005;a.gain.setValueAtTime(.0001,t);a.gain.linearRampToValueAtTime(g,t+att);a.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(a);a.connect(sfxM);o.start(t);o.stop(t+dur+.02)}
+function sfx(k){
+  var G={rifle:.07,cannon:.11,gun:.14,bb:.25,hit:.05,hitH:.09,splash:.09,boom:.1,decl:1};
+  if(!sfxOK(k,G[k]||.1))return;
+  var t=AC.currentTime,p=fxR(.88,1.12);
+  switch(k){
+    case"rifle":nz(t,.06,3500*p,1200,"bandpass",.45,1);break;
+    case"cannon":nz(t,.28,1400*p,200,"lowpass",.9);tn(t,.3,140*p,45,"sine",.8);break;
+    case"gun":nz(t,.45,1000*p,120,"lowpass",1);tn(t,.5,95*p,35,"sine",1);break;
+    case"bb":nz(t,.7,900*p,90,"lowpass",1.2);tn(t,.8,70*p,28,"sine",1.2);break;
+    case"hit":nz(t,.09,1800*p,300,"lowpass",.45);break;
+    case"hitH":nz(t,.18,1200*p,150,"lowpass",.7);tn(t,.15,100*p,40,"sine",.5);break;
+    case"splash":nz(t,.35,2500*p,600,"bandpass",.35,.8);break;
+    case"boom":nz(t,.9,2200*p,80,"lowpass",1.3);tn(t,.8,90*p,28,"sine",1.3);nz(t,.15,6000,2000,"highpass",.5);break;
+    case"decl":tn(t,1.3,110,108,"sawtooth",.3,.25);tn(t,1.3,165,162,"sawtooth",.18,.3);tn(t,1.3,220,216,"square",.06,.3);tn(t,.5,90,40,"sine",.9);tn(t+.45,.5,90,40,"sine",.9);break}
+}
+(function(){var b=document.createElement("button");b.id="sndb";b.textContent="音 ON";b.onclick=function(){SFXON=!SFXON;b.textContent=SFXON?"音 ON":"音 OFF";sfxInit();if(AC&&AC.state==="suspended")AC.resume()};var h=document.getElementById("home");if(h&&h.parentNode)h.parentNode.insertBefore(b,h)})();
 function fxHit(x,y,sea,sc){
+  sfx(sea?"splash":sc>1?"hitH":"hit");
   if(sea){fxAdd({k:"rg",x:x,y:y,T:.5,r0:3,r1:14*sc,c:"127,176,232",lw:2});for(var i=0;i<3;i++)fxAdd({k:"dp",x:x,y:y,vx:fxR(-25,25),vy:fxR(-90,-45),g:300,T:.45})}
   else{fxAdd({k:"fl",x:x,y:y,T:.3,r0:3,r1:15*sc});fxAdd({k:"rg",x:x,y:y,T:.3,r0:2,r1:16*sc,c:"255,220,140",lw:2});if(sc>1){fxAdd({k:"ry",x:x,y:y,T:.25,n:8,r0:3,r1:26*sc});fxShake(1.5)}for(var j=0;j<9;j++){var a=Math.random()*6.28,v=fxR(50,150)*sc;fxAdd({k:"sp",x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,dr:3,T:fxR(.2,.5),c:j%2?"#ffd166":"#fff3c4"})}if(sc>1)fxSmoke(x,y,"90,92,100",.35,4,11,.9,14,6)}}
 function fxFire(u,e){
   if((u.fxN||0)>fxT)return;
   var sea=u.m==="sea",tank=!!u.tk&&!sea,art=u.gk===1&&!sea,bb=u.sh==="bb",cr=u.sh==="cr",heavy=sea||tank||art;
   u.fxN=fxT+(sea?(bb?1.3:cr?1:.85):tank?.8:art?1.2:u.gk===2?.3:.4)+Math.random()*.35;
+  sfx(sea?(bb?"bb":"gun"):(tank||art)?"cannon":"rifle");
   var dx=e.x-u.x,dy=e.y-u.y,d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d,mo=heavy?15:9,tgSea=e.m==="sea",sc=heavy?(bb?1.7:1.3):.7;
   fxAdd({k:"fl",x:u.x,y:u.y,ox:ux*mo,oy:uy*mo,T:.2,r0:4,r1:sea?(bb?26:19):(tank||art)?19:10});
   for(var mi=0;mi<(heavy?6:3);mi++){var ma=Math.atan2(uy,ux)+fxR(-.5,.5),mv=fxR(60,170);fxAdd({k:"sp",x:u.x,y:u.y,ox:ux*mo,oy:uy*mo,vx:Math.cos(ma)*mv,vy:Math.sin(ma)*mv,dr:4,T:fxR(.15,.35),c:"#ffe08a"})}
@@ -526,6 +551,7 @@ function fxFire(u,e){
   for(var i=0;i<n;i++)fxAdd({k:"tr",x:u.x,y:u.y,x0:u.x,y0:u.y,x1:e.x+fxR(-4,4),y1:e.y+fxR(-4,4),T:heavy?Math.max(.2,Math.min(.45,d/110)):.1+i*.05,c:heavy?"#ff9a2e":"#ffcf5a",lw:heavy?2.6:1.4,arc:sea?(bb?20:13):art?16:tank?3:0,hit:function(p){fxHit(p.x1,p.y1,tgSea,sc)}})}
 function fxBoom(u){
   var sea=u.m==="sea",big=u.sh==="bb"?1.5:u.sh==="cr"?1.25:u.tk?1.15:u.gk===1?1.05:u.gk===2?1.1:1,x=u.x,y=u.y,i,a,v;
+  sfx("boom");
   fxAdd({k:"fl",x:x,y:y,T:.6,r0:6,r1:36*big});
   fxAdd({k:"fl",x:x,y:y,ox:fxR(-8,8),oy:fxR(-8,8),T:.4,r0:3,r1:20*big});
   fxAdd({k:"rg",x:x,y:y,T:.7,r0:8,r1:(sea?60:46)*big,c:sea?"127,176,232":"245,165,36",lw:3.5});
@@ -544,12 +570,12 @@ function fxBoom(u){
   if(!sea)for(i=0;i<9;i++){a=Math.random()*6.28;v=fxR(50,170)*big;fxAdd({k:"db",x:x,y:y,vx:Math.cos(a)*v,vy:-fxR(60,190)*big,g:430,T:fxR(.6,1.1),sz:fxR(2,4.5),c:i%2?"#3b342e":"#6b5b4a"})}
   for(i=0;i<5;i++)fxSmoke(x,y,sea?"200,220,240":"255,110,30",.5,6,22*big,fxR(.7,1.2),fxR(14,34),14);
   for(i=0;i<3;i++)fxSmoke(x,y,"40,40,46",.6,10,34*big,fxR(2.4,3.6),fxR(18,40),8)}
-function fxSplash(x,y){fxShake(2);fxAdd({k:"rg",x:x,y:y,T:1.4,r0:3,r1:54,c:"190,225,255",lw:2});fxAdd({k:"rg",x:x,y:y,T:.8,r0:4,r1:26,c:"127,176,232",lw:2.5});fxAdd({k:"rg",x:x,y:y,T:1.1,r0:2,r1:38,c:"127,176,232",lw:1.5});for(var i=0;i<8;i++)fxAdd({k:"dp",x:x,y:y,vx:fxR(-45,45),vy:fxR(-120,-60),g:340,T:fxR(.5,.8)})}
+function fxSplash(x,y){sfx("splash");fxShake(2);fxAdd({k:"rg",x:x,y:y,T:1.4,r0:3,r1:54,c:"190,225,255",lw:2});fxAdd({k:"rg",x:x,y:y,T:.8,r0:4,r1:26,c:"127,176,232",lw:2.5});fxAdd({k:"rg",x:x,y:y,T:1.1,r0:2,r1:38,c:"127,176,232",lw:1.5});for(var i=0;i<8;i++)fxAdd({k:"dp",x:x,y:y,vx:fxR(-45,45),vy:fxR(-120,-60),g:340,T:fxR(.5,.8)})}
 function fxWake(u){if((u.wkN||0)>fxT)return;u.wkN=fxT+.13;fxAdd({k:"rg",x:u.x,y:u.y,ox:fxR(-2,2),oy:7,T:1,r0:2,r1:13,c:"127,176,232",lw:1.5,L:0})}
 function fxDust(u){if((u.dsN||0)>fxT)return;u.dsN=fxT+.16;fxSmoke(u.x,u.y,"150,130,100",.4,3,12,.9,6,8)}
 function fxBuild(u){if((u.bdN||0)>fxT)return;u.bdN=fxT+.18;fxSmoke(u.x,u.y,"150,130,100",.35,3,10,.8,8,6);var a=Math.random()*6.28;fxAdd({k:"sp",x:u.x,y:u.y,ox:fxR(-8,8),oy:8,vx:Math.cos(a)*50,vy:-fxR(30,90),g:260,T:.4,c:"#ffd166"})}
 function fxKill(q){if(!q)return;fxAdd({k:"fl",x:q.x,y:q.y,T:.2,r0:2,r1:8});fxSmoke(q.x,q.y,"150,130,100",.45,3,11,.8,10,8)}
-function fxDecl(o){if(!o)return;var c=bbox(o.pts);fxAdd({k:"rg",x:c[0],y:c[1],T:1.1,r0:8,r1:70,c:"229,72,77",lw:4});fxAdd({k:"rg",x:c[0],y:c[1],T:1.6,r0:8,r1:110,c:"229,72,77",lw:2.5});fxAdd({k:"em",x:c[0],y:c[1],T:2.2});fxAdd({k:"rg",x:c[0],y:c[1],T:.8,r0:4,r1:160,c:"255,255,255",lw:5});fxAdd({k:"ry",x:c[0],y:c[1],T:.8,n:20,r0:10,r1:130});fxShake(9)}
+function fxDecl(o){if(!o)return;sfx("decl");var c=bbox(o.pts);fxAdd({k:"rg",x:c[0],y:c[1],T:1.1,r0:8,r1:70,c:"229,72,77",lw:4});fxAdd({k:"rg",x:c[0],y:c[1],T:1.6,r0:8,r1:110,c:"229,72,77",lw:2.5});fxAdd({k:"em",x:c[0],y:c[1],T:2.2});fxAdd({k:"rg",x:c[0],y:c[1],T:.8,r0:4,r1:160,c:"255,255,255",lw:5});fxAdd({k:"ry",x:c[0],y:c[1],T:.8,n:20,r0:10,r1:130});fxShake(9)}
 function fxFlag(o){if(!o)return;var c=bbox(o.pts);fxAdd({k:"fg",x:c[0],y:c[1],T:5})}
 function drawFx(L){
   var k=Math.max(.6,Math.min(1.4,view.s)),i,g,r,x,y,u,a;
