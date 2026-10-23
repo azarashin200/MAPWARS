@@ -117,7 +117,7 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={};try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
+var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={};/* 再読み込みで全てリセット：IDも国も毎回新しく、端末には保存しない */myUid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36);try{localStorage.removeItem("rymap_uid");localStorage.removeItem("rymap_world")}catch(e){}
 function hid(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return(h>>>0)%2000000000+1000}
 function canDraw(){return online&&ready&&!(myObj&&objs.indexOf(myObj)>=0)}
 function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[]}}
@@ -877,7 +877,7 @@ setTool("select");updUI();resize();home();requestAnimationFrame(loop);
 
 Object.keys(world).forEach(function(id){applyOne(id,world[id])});
 $("who").textContent="👤 この端末";render();
-function saveWorld(){try{localStorage.rymap_world=JSON.stringify(world)}catch(e){}}
+function saveWorld(){}
 function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(p!==ex&&p.readyState==="open")p.send(s)})}
 function applyOne(id,x){var n2=hid(id),o=byId(n2),d;try{d=JSON.parse(x)}catch(e){return}
   if(id===myUid){if(myObj&&objs.indexOf(myObj)>=0)return;o=null}
@@ -920,11 +920,6 @@ function bindNet(){
     }catch(err){ns.m="home";netUI();say("接続エラー: "+(err&&err.message||err))}
   })}
 bindNet();
-/* 再読み込み・タブを閉じる・アプリを離れる直前に、自分の国を端末へ確実に保存する */
-function flushMine(){try{if(myObj&&myObj.founded)pushNow(true);else saveWorld()}catch(e){}}
-window.addEventListener("pagehide",flushMine);
-window.addEventListener("beforeunload",flushMine);
-document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushMine()});
 })();
 </script>
 </body>
