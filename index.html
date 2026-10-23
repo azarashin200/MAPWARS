@@ -674,7 +674,7 @@ function mySide(){if(!myObj||!myObj.founded)return null;var me=root(myObj),w=nul
 function dvComp(u){var f=Math.max(0,u.hp)/u.maxhp,rm=Math.max(1,Math.ceil(u.men*f)),kd=u.m==="sea"?(u.sh&&SHIP[u.sh]?SHIP[u.sh].n:"船"):u.m==="build"?"造船中":GK[u.gk|0].n;return kd+" ・ 兵力 "+rm+"/"+u.men+"人 ・ 耐久 "+Math.round(f*100)+"%"}
 function openDv(){["wlp","bgp","net"].forEach(function(i){$(i).classList.remove("show")});$("dvp").classList.add("show");drawDv(true)}
 function updDvSel(){var p=$("dvp"),n=0,t=0;[].forEach.call(p.querySelectorAll(".dvr"),function(r){var on=!!dvSel[r.getAttribute("data-k")];t++;if(on)n++;r.classList.toggle("on",on);});var c=p.querySelector(".dvn");if(c)c.textContent="選択 "+n+"/"+t}
-function drawWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();if(!W)return;
+function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();if(!W)return;
   if(!s){W.innerHTML='<div class="lbl">戦争中ではありません。宣戦布告する（または宣戦布告される）と、この下に従来の「師団命令」（師団を選んで進軍先を命令）が出ます。</div>';dvSig="";return}
   var keys=s.L.map(ukey),sig=keys.join(",");Object.keys(dvSel).forEach(function(k){if(keys.indexOf(k)<0)delete dvSel[k]});
   if(force||sig!==dvSig||!p.querySelector(".dvl")){var old=p.querySelector(".dvl"),sc=old?old.scrollTop:0,E=byId(s.w.a===s.me.id?s.w.b:s.w.a),nG=[0,0,0,0],rows="";
@@ -713,7 +713,7 @@ function drawMg(force){var p=$("dvp"),M=p.querySelector(".dvmg");if(!M)return;va
   var nl=M.querySelector(".dvl2");if(nl)nl.scrollTop=sc}
 function drawDv(force){var p=$("dvp");if(!p.classList.contains("show"))return;
   if(!p.querySelector(".dvmg")){p.innerHTML='<h4>師団管理 <button data-d="x">閉じる</button></h4><div class="dvmg"></div><div class="dvwar"></div>';dvMgSig="";dvSig="";force=true}
-  drawMg(force);drawWar(force)}
+  drawMg(force);drawDvWar(force)}
 $("dvp").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-d]");if(!b)return;var a=b.getAttribute("data-d"),k=b.getAttribute("data-k"),s=mySide();
   if(a==="x"){$("dvp").classList.remove("show");return}
   if(a==="mk"||a==="tk"||a==="sp"||a==="rv"){dvAct(a,+b.getAttribute("data-i"));return}
