@@ -920,6 +920,11 @@ function bindNet(){
     }catch(err){ns.m="home";netUI();say("接続エラー: "+(err&&err.message||err))}
   })}
 bindNet();
+/* 再読み込み・タブを閉じる・アプリを離れる直前に、自分の国を端末へ確実に保存する */
+function flushMine(){try{if(myObj&&myObj.founded)pushNow(true);else saveWorld()}catch(e){}}
+window.addEventListener("pagehide",flushMine);
+window.addEventListener("beforeunload",flushMine);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushMine()});
 })();
 </script>
 </body>
