@@ -330,7 +330,7 @@ function walk(dt){objs.forEach(function(o){if(!o.founded||!o.people)return;var l
 function sim(dt,rdt){
   var C=objs.filter(function(o){return o.founded});
   C.forEach(function(o){
-    if(online&&!o.mine){syncPeople(o,dt);return}if(o.wipe)return;
+    if(online&&!o.mine){syncPeople(o,dt);return}if(o.wipe){if(hasIdle(o))o.wipe=false;else return}
     houseSim(o,dt);var cap=popCap(o);o.pop=Math.max(2,o.pop+.06*(o.dep?3:1)*(1+.1*(o.edu-1))*o.pop*(1-o.pop/cap)*dt);o.pw=Math.min(200,(o.pw||0)+pwRate(o)*dt);
     syncPeople(o,dt);
     
@@ -601,7 +601,9 @@ function setShip(u,k){if(u.mx0==null){u.mx0=u.maxhp;u.dp0=u.dps}var r=Math.max(0
 function shipSc(u){return u.sh==="bb"?1.55:u.sh==="cr"?1.3:1}
 function thr(w,id){return Math.max(4,Math.ceil(w.n0[id]*4.5*Math.max(.55,1-w.t/1200)))}
 function surrender(w,id,pre){var L=byId(id),W=byId(id===w.a?w.b:w.a);endWar(w);L.ruler=W.id;fxFlag(L);wl(w,""+L.name+"は"+(pre||"")+"降伏し、"+W.name+"の支配下に入った","win");say(""+L.name+"が"+W.name+"に降伏");return false}
-function reinf(w,o,sd){if(!o||o.wipe||!o.dep)return;var P=o.people||[],nd=nDiv(o),pn=(o.pend||[]).length;
+/* 復活・創設したのに戦線に出ていない師団があるか */
+function hasIdle(o){if(!o||!o.dep)return false;var D=dvs(o);for(var i=0;i<D.length;i++)if(!D[i].x&&!o.dep[i])return true;return false}
+function reinf(w,o,sd){if(!o||!o.dep)return;if(o.wipe){if(!hasIdle(o))return;o.wipe=false}var P=o.people||[],nd=nDiv(o),pn=(o.pend||[]).length;
   for(var i=0;i<nd;i++){if(o.dep[i]||!dvAlive(o,i))continue;var M=P.filter(function(q){return q.s&&q.d===i});
     if(!(M.length>=3||(M.length>0&&!pn)))continue;
     var Lq=M.filter(function(q){return q.L})[0]||M[0],str=Math.max(4,M.length)*(1+.35*(o.mil-1))*lvB(o);
