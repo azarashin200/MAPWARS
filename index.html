@@ -232,7 +232,7 @@ function paintStep(w){var k=key(w.a,w.b),A=byId(w.a),B=byId(w.b),M=members(A).co
 function occR(w,id){var oid=id===w.a?w.b:w.a,t=0,p=0,k=key(w.a,w.b);members(byId(id)).forEach(function(m){var z=m.pz;if(!z||z.k!==k)return;t+=z.tot;for(var i=0;i<z.own.length;i++)if(z.own[i]===oid)p++});return t?p/t:0}
 function updOcc(w,dt){paintStep(w);w.ot=(w.ot||0)-dt;if(w.ot>0)return;w.ot=.5;w.oc=w.oc||{};w.ms=w.ms||{};
   [w.a,w.b].forEach(function(id){var r=occR(w,id);w.oc[id]=r;var lv=r>=.5?2:r>=.25?1:0;if(lv>(w.ms[id]||0)){w.ms[id]=lv;var L=byId(id),W=byId(id===w.a?w.b:w.a);wl(w,"🎨 "+W.name+"軍が"+L.name+"の国土の"+(lv*25)+"%以上を占領","land")}});flipVassals(w)}
-function occCheck(w){var sr=null;[w.a,w.b].forEach(function(id){var r=w.oc&&w.oc[id];if(r>=.9&&(sr==null||r>w.oc[sr]))sr=id});return sr}
+function occCheck(w){var sr=null;[w.a,w.b].forEach(function(id){var r=w.oc&&w.oc[id];if(r>=.7&&(sr==null||r>w.oc[sr]))sr=id});return sr}
 function drawPaint(o){var z=o.pz;if(!z)return;var any=false,i;for(i=0;i<z.own.length;i++)if(z.own[i]){any=true;break}if(!any)return;
   var cc={},s=view.s,cs=z.cs*s,j;ctx.save();ctx.clip();ctx.globalAlpha=.88;
   for(j=0;j<z.ny;j++){var y=view.y+(z.y0+j*z.cs)*s;if(y>chh||y+cs<0)continue;
@@ -676,6 +676,7 @@ function endWar(w,msg){var A=byId(w.a),B=byId(w.b);clearPaint(key(w.a,w.b));
   w.U.forEach(function(u){if(u.dead)return;var O=byId(u.o);if(O)loss(O,u,u.men-Math.ceil(u.men*u.hp/u.maxhp))});
   var ss={};w.U.forEach(function(u){if(!u.dead)ss[u.o]=1});[w.a,w.b].forEach(function(id){var r=byId(id);ss[id]=1;if(r)members(r).forEach(function(m){ss[m.id]=1})});
   Object.keys(ss).forEach(function(k){var o=byId(+k);if(o){o.dep=null;o.wipe=false}});if(msg)wl(w,msg,"win")}
+var AUTO_SURR=false;/* true にすると、占領70%/損害/長期戦での自動降伏が復活 */
 function warStep(w,dt){
   var A=byId(w.a),B=byId(w.b);if(!A||!B||A.ruler||B.ruler){endWar(w,"戦争は中断された");return false}
   w.t+=dt;
@@ -703,9 +704,9 @@ function warStep(w,dt){
   U.forEach(function(u){if(u.hp>0||u.dead)return;u.dead=true;fxBoom(u);w.lost[u.sd]+=(u.m==="sea"?.5:1);var O=byId(u.o),k=u.last;loss(O,u,u.men);if(O.dep)O.dep[u.i]=false;
     wl(w,(k?k.name+"が":"")+u.name+"を"+(u.m==="sea"?"海戦で撃沈":"陸戦で撃破"),u.m==="sea"?"sea":"land")});
   U=U.filter(function(u){return!u.dead});by[w.a]=[];by[w.b]=[];U.forEach(function(u){by[u.sd].push(u)});
-  updOcc(w,dt);var oc=occCheck(w);if(oc!=null)return surrender(w,oc,"国土の大半を占領され");
+  updOcc(w,dt);var oc=AUTO_SURR?occCheck(w):null;if(oc!=null)return surrender(w,oc,"国土の大半を占領され");
   var sr=null;[w.a,w.b].forEach(function(id){var q=w.lost[id]/thr(w,id);if(q>=1&&(sr==null||q>w.lost[sr]/thr(w,sr)))sr=id});
-  if(sr!=null)return surrender(w,sr);
+  if(sr!=null&&AUTO_SURR)return surrender(w,sr);
   var done=false;
   [w.a,w.b].forEach(function(id){if(done)return;var oid=id===w.a?w.b:w.a,E=byId(oid),W=byId(id);if(by[oid].length||!by[id].length)return;
     var EM=members(E);if(!E.wipe)wl(w,W.name+"軍が"+E.name+(EM.length>1?"陣営":"")+"の全師団を撃破。住民の殲滅を開始","win");EM.forEach(function(m){m.wipe=true});
@@ -714,7 +715,7 @@ function warStep(w,dt){
     if(!EM.some(function(m){return(m.people||[]).length})){done=true;endWar(w);EM.forEach(function(m){m.pop=2;m.people=[];m.pend=[]});E.ruler=id;
       wl(w,"🏴 "+E.name+"の住民は殲滅され、"+W.name+"が支配下に置いた","win");say("🏴 "+W.name+"が"+E.name+"を殲滅・支配した")}});
   if(done)return false;
-  if(w.t>=1000&&(by[w.a].length||by[w.b].length)){var ra=w.lost[w.a]/thr(w,w.a),rb=w.lost[w.b]/thr(w,w.b);if(Math.abs(ra-rb)>.05)return surrender(w,ra>rb?w.a:w.b,"長期戦の末に")}
+  if(w.t>=1000&&(by[w.a].length||by[w.b].length)){var ra=w.lost[w.a]/thr(w,w.a),rb=w.lost[w.b]/thr(w,w.b);if(AUTO_SURR&&Math.abs(ra-rb)>.05)return surrender(w,ra>rb?w.a:w.b,"長期戦の末に")}
   if(!by[w.a].length&&!by[w.b].length||w.t>=1000){fr[key(w.a,w.b)]=40;endWar(w,"停戦："+(w.t>=1000?"決着つかず":"両軍壊滅"));say("🕊 "+A.name+"と"+B.name+"が停戦");return false}
   return true}
 function drawWar(){wars.forEach(function(w){
