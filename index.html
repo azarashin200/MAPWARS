@@ -116,6 +116,84 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 #cmd .ups{flex-wrap:wrap}#cmd .ups button{flex:1 1 28%}
 @keyframes dclIn{from{opacity:0;transform:scale(1.1)}to{opacity:1;transform:none}}
 @keyframes dclPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+/* ===== スマホ専用UI（幅600px以下、または横向きスマホ）。PC・iPadには影響しません ===== */
+@media (max-width:600px),(max-height:480px) and (pointer:coarse){
+  html,body{height:100dvh}
+  body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+  button{min-height:40px;padding:8px 12px;font-size:14px;touch-action:manipulation}
+  input,textarea{font-size:16px;min-height:42px}
+  textarea{min-height:90px}
+  td.e input{min-height:38px;padding:8px}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+  th,td{padding:6px 8px}
+
+  /* 上部バー：1行で横スクロール、ロゴはアイコンのみ */
+  #top{gap:6px;padding:6px 8px;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #top::-webkit-scrollbar{display:none}
+  #top>*{flex:none}
+  .logo{margin-right:4px}.logo span{display:none}
+  #top button{min-height:38px;padding:7px 12px;font-size:13px}
+  #who{display:none}
+
+  /* 上から開くパネル：全幅、画面上部に固定 */
+  #bgp,#wlp,#net,#dvp{top:56px;left:8px;right:8px;width:auto;max-width:none;max-height:46dvh;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;z-index:6}
+  #bgp,#wlp{touch-action:pan-y}
+  #wlp .wb{max-height:30dvh}
+  #dvp .dvl{max-height:20dvh}#dvp .dvl2{max-height:16dvh}
+  #net{max-height:60dvh}
+  #wlp h4 button,#dvp h4 button{min-height:34px;padding:6px 12px;font-size:13px}
+  .dvr{padding:10px 6px;gap:10px;font-size:13px}
+  .dvr .cb{width:20px;height:20px}
+  .dvr button{min-height:36px;padding:6px 12px}
+  .wb{font-size:13px}
+  body:has(#wlp.show) #log{top:calc(56px + 30dvh + 80px)}
+
+  /* 通知 */
+  #log{top:60px;left:8px;max-width:calc(100% - 16px)}
+  .toast{font-size:13px;padding:9px 12px}
+
+  /* 下のツールバー：大きく押しやすく */
+  #dock{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-width:none;padding:5px;gap:3px}
+  .tool{padding:8px 2px;font-size:11px;min-height:54px;justify-content:center}
+  .tool svg{width:24px;height:24px}
+  .vr{margin:8px 2px}
+
+  /* 下から開くシート：全幅・大きめ */
+  #sheet,#cmd{left:0;right:0;bottom:calc(76px + env(safe-area-inset-bottom,0px));max-width:none;margin:0;border-radius:16px 16px 0 0;border-bottom-width:0;padding:12px 14px 14px;box-sizing:border-box}
+  #sheet{max-height:52dvh;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  #sheet::before,#cmd::before{content:"";display:block;width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px}
+  body.nd #sheet,body.nd #cmd{bottom:var(--mh,12px)}
+  body.nd #sheet{max-height:calc(100dvh - var(--mh,12px) - 70px)}
+  .sh{gap:6px}
+  .sh h3{font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sh button{min-height:38px;padding:6px 12px;font-size:13px}
+  .row{gap:6px}
+  .row button{min-height:42px}
+  .lbl{font-size:12px}
+  .note{font-size:14px}
+  input[type=range]{height:34px}
+  .rgb{grid-template-columns:16px 1fr 34px;gap:2px 10px;font-size:12px}
+  .sw{height:28px}
+
+  /* 強化ボタン（国・師団） */
+  .ups{gap:6px}
+  .ups button{padding:10px 4px;min-height:56px}
+  .ups .n{font-size:13px}.ups .c{font-size:11px}
+  #cmd .ups button{flex:1 1 30%}
+  #dvp .ups button{flex:1 1 30%}
+
+  /* 自国バー（下部横スクロール） */
+  #mine{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:6px 8px;gap:8px}
+  #mine .gauge{width:140px;height:30px}
+  #mine .ups button{width:100px;min-height:48px;padding:6px 4px}
+  #mine .ups .l{font-size:15px}
+  #mine .ups .c{font-size:10px}
+  body.nd #mine{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+
+  /* 宣戦布告画面 */
+  #decl{padding:20px}
+}
 </style>
 </head>
 <body>
@@ -518,7 +596,7 @@ function sfxOK(k,gap){if(!SFXON||!AC||AC.state!=="running")return false;var t=AC
 function nz(t,dur,f0,f1,type,g,q){var s=AC.createBufferSource();s.buffer=NB;s.loop=true;var f=AC.createBiquadFilter();f.type=type;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);if(q)f.Q.value=q;var a=AC.createGain();a.gain.setValueAtTime(g,t);a.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(a);a.connect(sfxM);s.start(t,Math.random());s.stop(t+dur+.02)}
 function tn(t,dur,f0,f1,type,g,att){var o=AC.createOscillator();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);var a=AC.createGain();att=att||.005;a.gain.setValueAtTime(.0001,t);a.gain.linearRampToValueAtTime(g,t+att);a.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(a);a.connect(sfxM);o.start(t);o.stop(t+dur+.02)}
 function sfx(k){
-  var G={rifle:.07,cannon:.11,gun:.14,bb:.25,hit:.05,hitH:.09,splash:.09,boom:.1,decl:1};
+  var G={rifle:.07,cannon:.11,gun:.14,bb:.25,hit:.05,hitH:.09,splash:.09,boom:.1,decl:1,click:.03,tick:.03,ok:.08,no:.08,open:.06,close:.06};
   if(!sfxOK(k,G[k]||.1))return;
   var t=AC.currentTime,p=fxR(.88,1.12);
   switch(k){
@@ -530,9 +608,24 @@ function sfx(k){
     case"hitH":nz(t,.18,1200*p,150,"lowpass",.7);tn(t,.15,100*p,40,"sine",.5);break;
     case"splash":nz(t,.35,2500*p,600,"bandpass",.35,.8);break;
     case"boom":nz(t,.9,2200*p,80,"lowpass",1.3);tn(t,.8,90*p,28,"sine",1.3);nz(t,.15,6000,2000,"highpass",.5);break;
+    case"click":tn(t,.05,1500*p,900,"triangle",.35,.002);break;
+    case"tick":tn(t,.04,2200,1800,"square",.12,.002);break;
+    case"ok":tn(t,.09,880,880,"triangle",.4,.003);tn(t+.07,.14,1320,1320,"triangle",.4,.003);break;
+    case"no":tn(t,.12,300,180,"sawtooth",.18,.003);break;
+    case"open":tn(t,.1,600,1000,"sine",.35,.004);break;
+    case"close":tn(t,.1,1000,560,"sine",.3,.004);break;
     case"decl":tn(t,1.3,110,108,"sawtooth",.3,.25);tn(t,1.3,165,162,"sawtooth",.18,.3);tn(t,1.3,220,216,"square",.06,.3);tn(t,.5,90,40,"sine",.9);tn(t+.45,.5,90,40,"sine",.9);break}
 }
 (function(){var b=document.createElement("button");b.id="sndb";b.textContent="音 ON";b.onclick=function(){SFXON=!SFXON;b.textContent=SFXON?"音 ON":"音 OFF";sfxInit();if(AC&&AC.state==="suspended")AC.resume()};var h=document.getElementById("home");if(h&&h.parentNode)h.parentNode.insertBefore(b,h)})();
+/* ボタン効果音（動的に作られるボタンも含め、全ボタンに適用） */
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("button");if(!b||b.disabled||b.id==="sndb")return;
+  var a=b.getAttribute("data-a")||"",o=b.getAttribute("data-o")||"",id=b.id,k="click";
+  if(b.classList.contains("tool"))k=(id==="drop")?"no":(id==="close"?"ok":"tick");
+  else if(b.classList.contains("danger")||a==="del"||id==="wlc"||id==="bgr")k="no";
+  else if(a==="x"||o==="x"||id==="nx")k="close";
+  else if(a==="found"||b.classList.contains("pri")||b.closest(".ups"))k="ok";
+  else if(["wlb","dvb","bgb","netb","edit"].indexOf(id)>=0||a==="edit")k="open";
+  if(AC&&AC.state==="suspended")AC.resume();sfx(k)},true);
 function fxHit(x,y,sea,sc){
   sfx(sea?"splash":sc>1?"hitH":"hit");
   if(sea){fxAdd({k:"rg",x:x,y:y,T:.5,r0:3,r1:14*sc,c:"127,176,232",lw:2});for(var i=0;i<3;i++)fxAdd({k:"dp",x:x,y:y,vx:fxR(-25,25),vy:fxR(-90,-45),g:300,T:.45})}
@@ -630,8 +723,12 @@ function surrender(w,id,pre){var L=byId(id),W=byId(id===w.a?w.b:w.a);endWar(w);L
 /* 復活・創設したのに戦線に出ていない師団があるか */
 function hasIdle(o){if(!o||!o.dep)return false;var D=dvs(o);for(var i=0;i<D.length;i++)if(!D[i].x&&!o.dep[i])return true;return false}
 function reinf(w,o,sd){if(!o||!o.dep)return;if(o.wipe){if(!hasIdle(o))return;o.wipe=false}var P=o.people||[],nd=nDiv(o),pn=(o.pend||[]).length;
-  for(var i=0;i<nd;i++){if(o.dep[i]||!dvAlive(o,i))continue;var M=P.filter(function(q){return q.s&&q.d===i});
-    if(!(M.length>=3||(M.length>0&&!pn)))continue;
+  for(var i=0;i<nd;i++){if(o.dep[i]||!dvAlive(o,i))continue;var M=P.filter(function(q){return q.s&&q.d===i}),forced=false;
+    if(!M.length){/* 復活・創設直後で兵士が回ってこない師団には、民間人から最大3人を配属して即出撃させる */
+      var CV=P.filter(function(q){return!q.s});
+      for(var kk=0;kk<3&&CV.length;kk++){var cq=CV.splice(Math.random()*CV.length|0,1)[0];cq.s=true;cq.d=i;cq.L=false;M.push(cq)}
+      if(M.length){M[0].L=true;forced=true}}
+    if(!forced&&!(M.length>=3||(M.length>0&&!pn)))continue;
     var Lq=M.filter(function(q){return q.L})[0]||M[0],str=Math.max(4,M.length)*(1+.35*(o.mil-1))*lvB(o);
     w.U.push({id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:M.length,str:str,gk:gkOf(o,i),tk:gkOf(o,i)===3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false});
     o.dep[i]=true;wl(w,o.name+(i+1)+"が戦線に加わった","land")}}
