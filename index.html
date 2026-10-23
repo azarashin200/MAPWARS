@@ -79,8 +79,8 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 </head>
 <body>
 <div id="stage">
-  <canvas id="cv"></canvas>
-  <div id="top" class="glass"><div class="logo">RYUMAP<b>.</b></div><div id="hint"></div><div id="who" style="font-size:11.5px;color:var(--sub);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">未接続</div><button id="fwar" style="display:none">⚔強制戦争</button><button id="fbt" style="display:none">🗡強制裏切り</button><button id="netb">🌐接続</button><button id="wlb">戦況</button><button id="spd">⏩×1</button><button id="bgb">背景</button><button id="home">中央</button></div><div id="bgp" class="glass"></div><div id="wlp" class="glass"></div><div id="net" class="glass"></div><div id="log"></div>
+  <canvas id="cv"></canvas><button id="zr" class="glass" style="position:absolute;top:66px;right:10px;padding:8px 12px;display:none;z-index:2">🔍 元の表示</button>
+  <div id="top" class="glass"><div class="logo">RYUMAP<b>.</b></div><div id="hint"></div><div id="who" style="font-size:11.5px;color:var(--sub);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">未接続</div><button id="fwar">⚔強制戦争</button><button id="fbt">🗡強制裏切り</button><button id="netb">🌐接続</button><button id="wlb">戦況</button><button id="spd">⏩×1</button><button id="bgb">背景</button><button id="home">中央</button></div><div id="bgp" class="glass"></div><div id="wlp" class="glass"></div><div id="net" class="glass"></div><div id="log"></div>
   <div id="sheet" class="glass"></div>
   <div id="cmd" class="glass"></div>
   <div id="dock" class="glass">
@@ -95,7 +95,7 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={};try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
+var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={},cas={},relJ="",curRel={},wT=0,pT=0,fT=0,hW=false,hP=false;try{curRel=JSON.parse(localStorage.rymap_rel||"{}")}catch(e){}try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
 function hid(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return(h>>>0)%2000000000+1000}
 function canDraw(){return online&&ready&&!(myObj&&objs.indexOf(myObj)>=0)}
 function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[]}}
@@ -115,6 +115,7 @@ function pip(pt,poly){var c=false;for(var i=0,j=poly.length-1;i<poly.length;j=i+
 function bbox(p){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;p.forEach(function(q){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1])});return[(x0+x1)/2,(y0+y1)/2]}
 
 function render(){
+  var zb=$("zr");if(zb)zb.style.display=Math.abs(view.s-1)>.001?"block":"none";
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.fillStyle=bg;ctx.fillRect(0,0,cw,chh);var rgb=h2r(bg),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2])/255,gb=lum>.5?"40,55,85":"255,255,255";
   var st=20;while(st*view.s<14)st*=5;
@@ -282,7 +283,7 @@ function sim(dt,rdt){
     syncPeople(o,dt);
     
   });
-  var R=online?[]:C.filter(function(o){return!o.ruler}),busy={};
+  var R=(online&&!isHost)?[]:C.filter(function(o){return!o.ruler}),busy={};
   wars.forEach(function(w){busy[w.a]=busy[w.b]=1});
   for(var i=0;i<R.length;i++)for(var j=i+1;j<R.length;j++){
     var a=R[i],b=R[j],k=key(a.id,b.id);
@@ -291,8 +292,8 @@ function sim(dt,rdt){
     var P=warP(fr[k]);
     if(P&&Math.random()<1-Math.pow(1-P,dt/60)){var wc=warCheck(a,b);if(!wc.ok){giveUp(a,b);continue}var nw={a:a.id,b:b.id,t:0,U:[],nid:0,land:wc.land};wars.push(nw);startWar(nw);fxDecl(byId(nw.a));fxDecl(byId(nw.b));busy[a.id]=busy[b.id]=1;say("⚔ "+a.name+"が"+b.name+"に宣戦布告")}
   }
-  if(!online)betrayStep(dt,busy);
-  wars=wars.filter(function(w){return warStep(w,dt)});
+  if(!online||isHost)betrayStep(dt,busy);
+  if(!online||isHost)wars=wars.filter(function(w){return warStep(w,dt)});
   var act={};wars.forEach(function(w){act[key(w.a,w.b)]=1});
   Object.keys(occMap).forEach(function(id){var e=occMap[id];if(!act[e.k]){e.f-=dt*.4;if(e.f<=0)delete occMap[id]}});
 }
@@ -374,11 +375,11 @@ function drawHouse(h,o,k){var s=w2s([h.x,h.y]),t=Math.floor(h.lv),w=(14+3.4*h.lv
 
 /* ===== 裏切り・強制戦争 ===== */
 var pickMode=null,pickList=[];
-function forceWar(a,b){var ra=root(a),rb=root(b);if(ra===rb){say("同じ勢力同士は戦えない");return}
+function forceWar(a,b){if(online&&!isHost){bc({t:"fw",a:a.id,b:b.id});return}var ra=root(a),rb=root(b);if(ra===rb){say("同じ勢力同士は戦えない");return}
   var wc=warCheck(ra,rb);if(!wc.ok){giveUp(ra,rb);return}
   wars=wars.filter(function(w){if(w.a===ra.id||w.b===ra.id||w.a===rb.id||w.b===rb.id){endWar(w,"強制戦争のため中断");return false}return true});
   var nw={a:ra.id,b:rb.id,t:0,U:[],nid:0,land:wc.land};wars.push(nw);startWar(nw);fxDecl(byId(nw.a));fxDecl(byId(nw.b));say("⚔ 強制戦争："+ra.name+" vs "+rb.name)}
-function betray(o){if(!o.ruler)return false;var old=byId(o.ruler),rr=old?root(old):null;o.ruler=null;leaveWars(o);
+function betray(o){if(!o.ruler)return false;if(online&&!isHost){bc({t:"bt",id:o.id});return true}var old=byId(o.ruler),rr=old?root(old):null;o.ruler=null;leaveWars(o);
   if(rr){fr[key(o.id,rr.id)]=0;wlog.push({t:"",m:"🗡 "+o.name+"が宗主国"+rr.name+"を裏切り独立",k:"win"});say("🗡 "+o.name+"が"+rr.name+"を裏切った");forceWar(o,rr)}return true}
 function pickHit(o){
   if(pickMode==="betray"){if(!o.ruler){say(o.name+"は支配下にない");return}betray(o);setPick(null)}
@@ -456,7 +457,7 @@ function members(r){return objs.filter(function(o){return o.founded&&root(o)===r
 function sidePeople(id){var r=byId(id),out=[];if(r)members(r).forEach(function(m){(m.people||[]).forEach(function(p){out.push(p)})});return out}
 function dropUnit(w,u){u.dead=true;var O=byId(u.o);if(O)loss(O,u,u.men-Math.ceil(u.men*Math.max(0,u.hp)/u.maxhp))}
 function leaveWars(o){wars.forEach(function(w){w.U.forEach(function(u){if(u.o===o.id&&!u.dead)dropUnit(w,u)})});o.dep=null;o.wipe=false}
-function wl(w,m,k){wlog.push({t:w?"+"+Math.floor(w.t)+"s":"",m:m,k:k||""});if(wlog.length>400)wlog.shift();drawWl()}
+function wl(w,m,k){wlog.push({t:w?"+"+Math.floor(w.t)+"s":"",m:m,k:k||""});if(online&&isHost&&peers.length)bc({t:"L",e:wlog[wlog.length-1]});if(wlog.length>400)wlog.shift();drawWl()}
 function drawWl(){var p=$("wlp");if(!p.classList.contains("show"))return;var b=p.querySelector(".wb"),st=!b||b.scrollTop+b.clientHeight>=b.scrollHeight-8,old=b?b.scrollTop:0;
   p.innerHTML='<h4>戦況ログ<button id="wlc">クリア</button></h4><div class="wb">'+(wlog.length?wlog.map(function(e){return'<div class="wr '+e.k+'"><i>'+e.t+'</i>'+esc(e.m)+'</div>'}).join(""):'<div class="lbl">まだ戦いはありません</div>')+'</div>';
   b=p.querySelector(".wb");b.scrollTop=st?b.scrollHeight:old}
@@ -520,21 +521,21 @@ function updCmd(){if(!usel)return;var u=usel.u,el=$("cmdl");if(!el)return;var rm
 function closeCmd(){usel=null;ordMode=false;$("cmd").className="glass"}
 function orderTap(p){var u=usel&&usel.u;if(!u)return;var w=usel.w,eid=u.sd===w.a?w.b:w.a;
   if(ordMode==="country"){var wp=s2w(p),c=landAt(wp[0],wp[1]);
-    if(c&&c.founded&&root(c).id===eid){u.ord={k:"home",c:c.id};u.tt=0;ordMode=false;say("🏴 "+u.name+" → "+(c.name||"?")+"の本土へ進軍")}
+    if(c&&c.founded&&root(c).id===eid){u.ord={k:"home",c:c.id};u.tt=0;sendOrd(w,[u.id],u.ord);ordMode=false;say("🏴 "+u.name+" → "+(c.name||"?")+"の本土へ進軍")}
     else{ordMode=false;say("進軍先の指定をやめた（敵陣営の国をタップしてください）")}
     updCmd();render();return}
   var hit=unitAt(p);
   if(hit&&hit.w===usel.w&&hit.u.sd!==u.sd){var O=byId(u.o);if(hit.u.m==="sea"&&u.m==="land"&&O&&O.civ<3){say("陸の師団は海上の敵を狙えない（文明Lv3で造船可）");return}
-    u.ord={k:"unit",id:hit.u.id};u.tt=0;ordMode=false;say("🎯 "+u.name+" → "+hit.u.name+" を攻撃")}
+    u.ord={k:"unit",id:hit.u.id};u.tt=0;sendOrd(w,[u.id],u.ord);ordMode=false;say("🎯 "+u.name+" → "+hit.u.name+" を攻撃")}
   else{ordMode=false;say("標的の指定をやめた")}
   updCmd();render()}
 $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-o]");if(!b||!usel)return;var a=b.getAttribute("data-o"),u=usel.u,w=usel.w;
   if(a==="x"){closeCmd();render();return}
-  if(a==="auto"){u.ord=null;u.tt=0;ordMode=false;say("🤖 "+u.name+"は自動で戦う")}
-  else if(a==="home"){u.ord={k:"home"};u.tt=0;ordMode=false;say("🏴 "+u.name+"が本土へ進軍する")}
+  if(a==="auto"){u.ord=null;u.tt=0;sendOrd(w,[u.id],null);ordMode=false;say("🤖 "+u.name+"は自動で戦う")}
+  else if(a==="home"){u.ord={k:"home"};u.tt=0;sendOrd(w,[u.id],u.ord);ordMode=false;say("🏴 "+u.name+"が本土へ進軍する")}
   else if(a==="unit"){ordMode=ordMode==="unit"?false:"unit";if(ordMode)say("🎯 標的にする敵の師団をタップ")}
   else if(a==="country"){ordMode=ordMode==="country"?false:"country";if(ordMode)say("🗺 進軍先の敵の国をタップ（属国・占領された国も可）")}
-  else if(a==="allauto"||a==="allhome"){var h=a==="allhome",O=byId(u.o);w.U.forEach(function(x){if(!x.dead&&x.o===u.o){x.ord=h?{k:"home"}:null;x.tt=0}});ordMode=false;say((h?"🏴 ":"🤖 ")+(O?O.name:"")+"の全師団："+(h?"本土へ進軍":"自動"))}
+  else if(a==="allauto"||a==="allhome"){var h=a==="allhome",O=byId(u.o);var ids=[];w.U.forEach(function(x){if(!x.dead&&x.o===u.o){x.ord=h?{k:"home"}:null;x.tt=0;ids.push(x.id)}});sendOrd(w,ids,h?{k:"home"}:null);ordMode=false;say((h?"🏴 ":"🤖 ")+(O?O.name:"")+"の全師団："+(h?"本土へ進軍":"自動"))}
   updCmd();render()});
 function pick(w,u,en,eid){
   if(!en.length){var PP=sidePeople(eid);if(!PP.length)return null;var D=PP[(u.id*7+Math.floor(w.t/6))%PP.length];return {x:D.x,y:D.y}}
@@ -548,7 +549,7 @@ function pick(w,u,en,eid){
   var sh=en.filter(function(e){return e.m==="sea"}),ld=en.filter(function(e){return e.m!=="sea"});
   if(u.m==="sea"){var t=pickIn(w,u,sh);if(t&&Math.hypot(t.x-u.x,t.y-u.y)<40)return t;return pickIn(w,u,ld)||t}
   return pickIn(w,u,ld)||pickIn(w,u,sh)}
-function loss(O,u,n){var P=O.people||[],c=0,i;for(i=P.length-1;i>=0&&c<n;i--)if(P[i].s&&P[i].d===u.i){P.splice(i,1);c++;(O.pend=O.pend||[]).push(4)}O.pop=Math.max(2,O.pop-n)}
+function loss(O,u,n){var P=O.people||[],c=0,i;for(i=P.length-1;i>=0&&c<n;i--)if(P[i].s&&P[i].d===u.i){P.splice(i,1);c++;(O.pend=O.pend||[]).push(4)}popHit(O,n)}
 function endWar(w,msg){var A=byId(w.a),B=byId(w.b);clearPaint(key(w.a,w.b));
   w.U.forEach(function(u){if(u.dead)return;var O=byId(u.o);if(O)loss(O,u,u.men-Math.ceil(u.men*u.hp/u.maxhp))});
   var ss={};w.U.forEach(function(u){if(!u.dead)ss[u.o]=1});[w.a,w.b].forEach(function(id){var r=byId(id);ss[id]=1;if(r)members(r).forEach(function(m){ss[m.id]=1})});
@@ -587,8 +588,8 @@ function warStep(w,dt){
   [w.a,w.b].forEach(function(id){if(done)return;var oid=id===w.a?w.b:w.a,E=byId(oid),W=byId(id);if(by[oid].length||!by[id].length)return;
     var EM=members(E);if(!E.wipe)wl(w,W.name+"軍が"+E.name+(EM.length>1?"陣営":"")+"の全師団を撃破。住民の殲滅を開始","win");EM.forEach(function(m){m.wipe=true});
     by[id].forEach(function(u){if(u.m!=="land")return;if(!EM.some(function(m){return(m.people||[]).length}))return;u.acc+=(2+u.men/8)*dt;
-      while(u.acc>=1){u.acc--;var k=-1,bd=900,km=null;EM.forEach(function(m){var P=m.people||[];for(var i=0;i<P.length;i++){var d=(P[i].x-u.x)*(P[i].x-u.x)+(P[i].y-u.y)*(P[i].y-u.y);if(d<bd){bd=d;k=i;km=m}}});if(k<0){u.acc=Math.min(u.acc,1);break}fxKill(km.people[k]);km.people.splice(k,1);km.pop=Math.max(0,km.pop-Math.max(1,km.pop/(km.people.length+1)));u.hit=.3}});
-    if(!EM.some(function(m){return(m.people||[]).length})){done=true;endWar(w);EM.forEach(function(m){m.pop=2;m.people=[];m.pend=[]});E.ruler=id;
+      while(u.acc>=1){u.acc--;var k=-1,bd=900,km=null;EM.forEach(function(m){var P=m.people||[];for(var i=0;i<P.length;i++){var d=(P[i].x-u.x)*(P[i].x-u.x)+(P[i].y-u.y)*(P[i].y-u.y);if(d<bd){bd=d;k=i;km=m}}});if(k<0){u.acc=Math.min(u.acc,1);break}fxKill(km.people[k]);km.people.splice(k,1);popHit(km,Math.max(1,km.pop/(km.people.length+1)));u.hit=.3}});
+    if(!EM.some(function(m){return(m.people||[]).length})){done=true;endWar(w);EM.forEach(function(m){popHit(m,m.pop-2);m.people=[];m.pend=[]});E.ruler=id;
       wl(w,"🏴 "+E.name+"の住民は殲滅され、"+W.name+"が支配下に置いた","win");say("🏴 "+W.name+"が"+E.name+"を殲滅・支配した")}});
   if(done)return false;
   if(w.t>=1000&&(by[w.a].length||by[w.b].length)){var ra=w.lost[w.a]/thr(w,w.a),rb=w.lost[w.b]/thr(w,w.b);if(Math.abs(ra-rb)>.05)return surrender(w,ra>rb?w.a:w.b,"長期戦の末に")}
@@ -644,7 +645,7 @@ function liveHTML(o){var r=root(o),h='<div class="lbl">人口 <b>'+popN(o.pop)+'
   objs.forEach(function(p){if(p===o||!p.founded)return;any=1;var f=getFr(o.id,p.id);h+='<div class="frr"><span>'+esc(p.name?dn(p):"?")+(p.ruler?'（支配下）':'')+'</span><i><u style="width:'+f+'%"></u></i><b>'+Math.round(f)+'</b></div>'});
   return h+(any?'':'<div class="lbl">他の国はまだありません</div>')}
 function loop(t){var dt=Math.min(.1,(t-(lastT||t))/1000);lastT=t;try{sim(dt*speed,dt);walk(dt);fxStep(dt);render()}catch(err){if(!loop.e){loop.e=1;say("エラー: "+err.message)}}
-  if(pushT&&Date.now()>pushT){pushT=0;pushNow()}if(t-saveT>10000){saveT=t;pushNow()}
+  netTick(t);if(pushT&&Date.now()>pushT){pushT=0;pushNow()}if(t-saveT>10000){saveT=t;pushNow()}
   if(t-liveT>500){liveT=t;if(usel){if(usel.u.dead||wars.indexOf(usel.w)<0)closeCmd();else updCmd()}var Lv=$("live");if(Lv&&sel&&sel.founded&&!editing){Lv.innerHTML=liveHTML(sel);updPw(sel)}}
   requestAnimationFrame(loop)}
 function h2r(h){var n=parseInt(h.slice(1),16);return[n>>16,n>>8&255,n&255]}
@@ -678,7 +679,7 @@ function tap(p){
   if(pickMode&&hit&&hit.founded){pickHit(hit);return}
   if(ordMode){orderTap(p);return}
   var uu=pickMode?null:unitAt(p);
-  if(uu){usel=uu;sel=null;hsel=null;editing=false;showSheet();showCmd();render();return}
+  if(uu&&(!online||uu.u.o===myNid)){usel=uu;sel=null;hsel=null;editing=false;showSheet();showCmd();render();return}
   if(usel)closeCmd();
   var hh=pickMode?null:houseAt(p);
   if(hh){hsel=hh.h;sel=hh.o;lastTap={t:Date.now(),x:p.x,y:p.y,o:hh.o};editing=false;showSheet();render();return}
@@ -738,7 +739,7 @@ function updUI(){$("back").disabled=!cur.length;$("close").disabled=cur.length<3
 $("back").onclick=function(){cur.pop();updUI();render()};
 $("drop").onclick=function(){cur=[];updUI();render()};
 $("close").onclick=finish;
-$("home").onclick=home;
+$("home").onclick=home;$("zr").onclick=home;
 $("fwar").onclick=function(){setPick("war")};$("fbt").onclick=function(){setPick("betray")};
 $("wlb").onclick=function(){var p=$("wlp");p.classList.toggle("show");$("bgp").classList.remove("show");drawWl()};
 $("wlp").addEventListener("click",function(e){if(e.target.id==="wlc"){wlog=[];drawWl()}});
@@ -757,10 +758,10 @@ function saveWorld(){try{localStorage.rymap_world=JSON.stringify(world)}catch(e)
 function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(p!==ex&&p.readyState==="open")p.send(s)})}
 function applyOne(id,x){var n2=hid(id),o=byId(n2),d;try{d=JSON.parse(x)}catch(e){return}
   if(id===myUid){if(myObj&&objs.indexOf(myObj)>=0)return;o=null}
-  if(!o){o={id:n2,founded:true,ruler:null,people:[]};objs.push(o)}
-  Object.keys(d).forEach(function(k){o[k]=d[k]});o.founded=true;o.ruler=null;
+  if(!o){o={id:n2,founded:true,ruler:curRel[n2]||null,people:[]};objs.push(o)}
+  Object.keys(d).forEach(function(k){o[k]=d[k]});o.founded=true;
   if(id===myUid){o.mine=true;myObj=o;lastJ=x}world[id]=x}
-function removeOne(id){var o=byId(hid(id));if(o&&o!==myObj)objs.splice(objs.indexOf(o),1);delete world[id]}
+function removeOne(id){var o=byId(hid(id));objs.forEach(function(q){if(q.ruler===hid(id))q.ruler=null});if(o&&o!==myObj)objs.splice(objs.indexOf(o),1);delete world[id]}
 /* ===== P2P（サーバーなし）：コードをコピペして直接つなぐ。ホストが中継 ===== */
 var NP=$("net"),ns={m:"home",code:""},hostPc=null;
 function enc(d){return btoa(JSON.stringify(d))}
@@ -768,12 +769,40 @@ function dec(s){return JSON.parse(atob(s.replace(/\s/g,"")))}
 function mkPc(){return new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]})}
 function gathered(pc){return new Promise(function(r){if(pc.iceGatheringState==="complete")return r();var t=setTimeout(r,6000);pc.onicegatheringstatechange=function(){if(pc.iceGatheringState==="complete"){clearTimeout(t);r()}}})}
 function wire(dc){
-  dc.onopen=function(){peers.push(dc);ns.m="home";netUI();say("🌐 友達とつながりました");if(isHost)dc.send(JSON.stringify({t:"all",w:world}));else pushNow(true)};
-  dc.onclose=function(){var i=peers.indexOf(dc);if(i>=0)peers.splice(i,1);netUI();say("🌐 接続が切れました")};
+  dc.onopen=function(){peers.push(dc);ns.m="home";netUI();say("🌐 友達とつながりました");if(isHost){dc.send(JSON.stringify({t:"all",w:world}));dc.send(JSON.stringify({t:"R",r:curRel}))}else pushNow(true)};
+  dc.onclose=function(){var i=peers.indexOf(dc);if(i>=0)peers.splice(i,1);if(!isHost&&!peers.length){isHost=true;wars=[];objs.forEach(function(o){delete o.pz;o.dep=null;o.wipe=false})}netUI();say("🌐 接続が切れました")};
   dc.onmessage=function(e){var m;try{m=JSON.parse(e.data)}catch(x){return}
     if(m.t==="all"){Object.keys(m.w).forEach(function(id){applyOne(id,m.w[id])});saveWorld()}
     else if(m.t==="s"){applyOne(m.u,m.j);saveWorld();if(isHost)bc(m,dc)}
-    else if(m.t==="d"){removeOne(m.u);saveWorld();if(isHost)bc(m,dc)}}}
+    else if(m.t==="d"){removeOne(m.u);saveWorld();if(isHost)bc(m,dc)}
+    else if(m.t==="C"){var cn=m.c[myNid];if(cn&&myObj)myObj.pop=Math.max(2,myObj.pop-cn)}
+    else if(!isHost){if(m.t==="W")applyW(m);else if(m.t==="P")applyP(m);else if(m.t==="R")applyRel(m.r);else if(m.t==="L"){wlog.push(m.e);if(wlog.length>400)wlog.shift();drawWl();if(m.e.k==="win")say(m.e.m)}}
+    else if(m.t==="O"){wars.forEach(function(w){if(w.a===m.w[0]&&w.b===m.w[1])w.U.forEach(function(u){if(!u.dead&&m.u.indexOf(u.id)>=0){u.ord=m.o;u.tt=0}})})}
+    else if(m.t==="fw"){var fa=byId(m.a),fb=byId(m.b);if(fa&&fb)forceWar(fa,fb)}
+    else if(m.t==="bt"){var bo=byId(m.id);if(bo)betray(bo)}}}
+function popHit(o,n){if(!(n>0))return;o.pop=Math.max(2,o.pop-n);if(online&&isHost&&!o.mine)cas[o.id]=(cas[o.id]||0)+n}
+function sendOrd(w,ids,o){if(online&&!isHost)bc({t:"O",w:[w.a,w.b],u:ids,o:o})}
+function applyRel(r){curRel=r;relJ=JSON.stringify(r);objs.forEach(function(o){o.ruler=r[o.id]||null});try{localStorage.rymap_rel=relJ}catch(e){}}
+function encPz(z){var r=[],v=z.own[0],c=0;for(var i=0;i<z.own.length;i++){if(z.own[i]===v)c++;else{r.push(v+":"+c);v=z.own[i];c=1}}r.push(v+":"+c);return r.join(",")}
+function wMsg(){var wp=[];objs.forEach(function(o){if(o.wipe)wp.push(o.id)});
+  return{t:"W",wp:wp,w:wars.map(function(w){return{a:w.a,b:w.b,t:Math.round(w.t),l:w.land,U:w.U.filter(function(u){return!u.dead}).map(function(u){var tg=u.eng||u.tg;return[u.id,u.o,u.sd,u.i,u.m==="sea"?1:u.m==="build"?2:0,Math.round(u.x*10)/10,Math.round(u.y*10)/10,Math.round(u.hp),Math.round(u.maxhp),u.men,u.sh||0,u.tk?1:0,Math.round(u.hit*100)/100,tg?[Math.round(tg.x),Math.round(tg.y)]:0,u.ord||0,u.eng?1:0]})}})}}
+function pMsg(){return{t:"P",l:objs.filter(function(o){return o.pz}).map(function(o){var z=o.pz;return{id:o.id,k:z.k,cs:z.cs,x0:z.x0,y0:z.y0,nx:z.nx,ny:z.ny,r:encPz(z)}})}}
+function netTick(t){if(!isHost)return;
+  if(t-fT>500){fT=t;var rel={};objs.forEach(function(o){if(o.ruler)rel[o.id]=o.ruler});var j=JSON.stringify(rel);if(j!==relJ){relJ=j;curRel=rel;try{localStorage.rymap_rel=j}catch(e){}bc({t:"R",r:rel})}
+    if(peers.length&&Object.keys(cas).length)bc({t:"C",c:cas});cas={}}
+  if(!peers.length)return;
+  if(t-wT>250){wT=t;if(wars.length||hW){bc(wMsg());hW=wars.length>0}}
+  if(t-pT>1000){pT=t;if(wars.length||hP){bc(pMsg());hP=objs.some(function(o){return o.pz})}}}
+function applyW(m){
+  objs.forEach(function(o){o.dep=null;o.wipe=false});
+  wars=m.w.map(function(x){var w={a:x.a,b:x.b,t:x.t,land:x.l,U:[]};
+    x.U.forEach(function(r){var O=byId(r[1]),u={id:r[0],o:r[1],sd:r[2],i:r[3],m:["land","sea","build"][r[4]],x:r[5],y:r[6],hp:r[7],maxhp:r[8],men:r[9],sh:r[10]||null,tk:!!r[11],hit:r[12],tg:r[13]?{x:r[13][0],y:r[13][1]}:null,ord:r[14]||null,dead:false,eng:null,name:(O?O.name:"")+(r[3]+1)};
+      if(r[15])u.eng=u.tg;w.U.push(u);if(O)(O.dep=O.dep||{})[u.i]=true});return w});
+  m.wp.forEach(function(id){var o=byId(id);if(o)o.wipe=true});
+  if(usel){var f=null;wars.forEach(function(w){if(w.a===usel.w.a&&w.b===usel.w.b)w.U.forEach(function(u){if(u.id===usel.u.id)f={w:w,u:u}})});if(f)usel=f;else closeCmd()}}
+function applyP(m){var have={};
+  m.l.forEach(function(q){var o=byId(q.id);if(!o)return;have[q.id]=1;var own=new Int32Array(q.nx*q.ny),k=0;q.r.split(",").forEach(function(s){var a=s.split(":"),v=+a[0],c=+a[1];for(var i=0;i<c;i++)own[k++]=v});o.pz={k:q.k,cs:q.cs,x0:q.x0,y0:q.y0,nx:q.nx,ny:q.ny,ins:null,own:own,tot:0}});
+  objs.forEach(function(o){if(!have[o.id])delete o.pz})}
 function netUI(){var h='<h4>🌐 接続 <button id="nx">閉じる</button></h4><div class="lbl">つながっている人：'+peers.length+'人 ／ 1端末1国（端末IDで管理）</div>';
   if(ns.m==="home")h+='<div class="row"><button class="pri" data-n="h">招待コードを作る</button><button data-n="j">参加する</button></div>';
   else if(ns.m==="hw")h+='<div class="lbl">①このコードを友達に送る</div><textarea readonly id="nc">'+ns.code+'</textarea><button data-n="cp">コピー</button><div class="lbl">②友達から届いた返信コードを貼る</div><textarea id="na"></textarea><button class="pri" data-n="ha">接続</button><button data-n="b">戻る</button>';
@@ -789,7 +818,7 @@ function bindNet(){
       else if(n==="h"){ns.m="コード作成中…（数秒）";netUI();isHost=true;var pc=hostPc=mkPc(),dc=pc.createDataChannel("g");wire(dc);await pc.setLocalDescription(await pc.createOffer());await gathered(pc);ns.code=enc(pc.localDescription);ns.m="hw";netUI()}
       else if(n==="ha"){var c=$("na").value;if(!c.trim())return;await hostPc.setRemoteDescription(dec(c));ns.m="接続中…";netUI()}
       else if(n==="j"){ns.m="jw";netUI()}
-      else if(n==="ja"){var c2=$("na").value;if(!c2.trim())return;ns.m="返信コード作成中…（数秒）";netUI();isHost=false;var p2=mkPc();p2.ondatachannel=function(ev){wire(ev.channel)};await p2.setRemoteDescription(dec(c2));await p2.setLocalDescription(await p2.createAnswer());await gathered(p2);ns.code=enc(p2.localDescription);ns.m="jc";netUI()}
+      else if(n==="ja"){var c2=$("na").value;if(!c2.trim())return;ns.m="返信コード作成中…（数秒）";netUI();isHost=false;wars=[];objs.forEach(function(o){delete o.pz;o.dep=null;o.wipe=false});closeCmd();var p2=mkPc();p2.ondatachannel=function(ev){wire(ev.channel)};await p2.setRemoteDescription(dec(c2));await p2.setLocalDescription(await p2.createAnswer());await gathered(p2);ns.code=enc(p2.localDescription);ns.m="jc";netUI()}
       else if(n==="cp"){var ta=$("nc");ta.select();try{await navigator.clipboard.writeText(ta.value)}catch(x){document.execCommand("copy")}say("コピーしました")}
     }catch(err){ns.m="home";netUI();say("接続エラー: "+(err&&err.message||err))}
   })}
