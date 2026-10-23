@@ -95,7 +95,7 @@ input[type=range]{padding:0;border:0;background:none;height:24px;margin:0;touch-
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={},cas={},relJ="",curRel={},wT=0,pT=0,fT=0,hW=false,hP=false;try{curRel=JSON.parse(localStorage.rymap_rel||"{}")}catch(e){}try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
+var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={},cas={},relJ="",curRel={},wT=0,pT=0,fT=0,hW=false,hP=false,lt2=null;try{curRel=JSON.parse(localStorage.rymap_rel||"{}")}catch(e){}try{myUid=localStorage.rymap_uid||(localStorage.rymap_uid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36));world=JSON.parse(localStorage.rymap_world||"{}")}catch(e){}if(!myUid)myUid="u"+Math.random().toString(36).slice(2);
 function hid(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return(h>>>0)%2000000000+1000}
 function canDraw(){return online&&ready&&!(myObj&&objs.indexOf(myObj)>=0)}
 function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[]}}
@@ -115,7 +115,7 @@ function pip(pt,poly){var c=false;for(var i=0,j=poly.length-1;i<poly.length;j=i+
 function bbox(p){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;p.forEach(function(q){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1])});return[(x0+x1)/2,(y0+y1)/2]}
 
 function render(){
-  var zb=$("zr");if(zb)zb.style.display=Math.abs(view.s-1)>.001?"block":"none";
+  var zb=$("zr");if(zb)zb.style.display=(Math.abs(view.s-1)>.001||(window.visualViewport&&visualViewport.scale>1.02))?"block":"none";
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.fillStyle=bg;ctx.fillRect(0,0,cw,chh);var rgb=h2r(bg),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2])/255,gb=lum>.5?"40,55,85":"255,255,255";
   var st=20;while(st*view.s<14)st*=5;
@@ -151,7 +151,8 @@ function render(){
   }
 }
 function resize(){var r=cv.getBoundingClientRect();dpr=window.devicePixelRatio||1;cw=r.width;chh=r.height;cv.width=Math.round(cw*dpr);cv.height=Math.round(chh*dpr);render()}
-function home(){view.s=1;view.x=cw/2;view.y=chh/2-30;render()}
+function resetPageZoom(){var m=document.querySelector("meta[name=viewport]");if(!m)return;var c=m.getAttribute("content");m.setAttribute("content","width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");setTimeout(function(){m.setAttribute("content",c)},150)}
+function home(){view.s=1;view.x=cw/2;view.y=chh/2-30;resetPageZoom();render()}
 function zoom(f,p){var ns=Math.max(.25,Math.min(6,view.s*f));f=ns/view.s;view.x=p.x-(p.x-view.x)*f;view.y=p.y-(p.y-view.y)*f;view.s=ns;render()}
 
 /* 入力 */
@@ -165,7 +166,7 @@ cv.addEventListener("pointerdown",function(e){
     if(cur.length>=3&&near(p,cur[0],18))return;
     if(!cur.length||!near(p,cur[cur.length-1],4)){cur.push(s2w(p));updUI();render()}
   }else{mode="pan";moved=0;
-    if(tool==="select"&&lastTap&&Date.now()-lastTap.t<400&&Math.hypot(p.x-lastTap.x,p.y-lastTap.y)<24){var ho=hitAt(s2w(p));if(ho&&ho===lastTap.o&&(!online||ho.mine)){mode="move";mvo=ho;mvl=s2w(p);lastTap=null;sel=ho;render()}}}
+    if(tool==="select"&&lastTap&&Date.now()-lastTap.t<400&&Math.hypot(p.x-lastTap.x,p.y-lastTap.y)<24){var ho=hitAt(s2w(p));if(ho&&ho===lastTap.o&&(!online||ho.mine)){mode="move";moved=0;mvo=ho;mvl=s2w(p);lastTap=null;sel=ho;render()}}}
 });
 cv.addEventListener("pointermove",function(e){
   var q=ptr[e.pointerId];if(!q)return;var p=pos(e),dx=p.x-q.x,dy=p.y-q.y;ptr[e.pointerId]=p;
@@ -174,7 +175,7 @@ cv.addEventListener("pointermove",function(e){
     view.x+=c.x-pinch.x;view.y+=c.y-pinch.y;zoom(d/pinch.d,c);pinch={d:d,x:c.x,y:c.y};
   }else if(mode==="pan"){view.x+=dx;view.y+=dy;moved+=Math.abs(dx)+Math.abs(dy);render()}
   else if(mode==="shape"&&shp){shp.b=s2w(p);render()}
-  else if(mode==="move"&&mvo){var w=s2w(p),mx=w[0]-mvl[0],my=w[1]-mvl[1];mvo.pts.forEach(function(q){q[0]+=mx;q[1]+=my});(mvo.people||[]).forEach(function(q){q.x+=mx;q.y+=my});(mvo.houses||[]).forEach(function(q){q.x+=mx;q.y+=my});(mvo.fac||[]).forEach(function(q){q.x+=mx;q.y+=my});mvl=w;render()}
+  else if(mode==="move"&&mvo){moved+=Math.abs(dx)+Math.abs(dy);var w=s2w(p),mx=w[0]-mvl[0],my=w[1]-mvl[1];mvo.pts.forEach(function(q){q[0]+=mx;q[1]+=my});(mvo.people||[]).forEach(function(q){q.x+=mx;q.y+=my});(mvo.houses||[]).forEach(function(q){q.x+=mx;q.y+=my});(mvo.fac||[]).forEach(function(q){q.x+=mx;q.y+=my});mvl=w;render()}
   else if(mode==="draw"&&Math.hypot(p.x-lastS.x,p.y-lastS.y)>12){
     if(!(cur.length>=3&&near(p,cur[0],18)&&false))cur.push(s2w(p));lastS=p;updUI();render();
   }
@@ -183,7 +184,7 @@ function up(e){
   var p=pos(e);
   if(mode==="shape"&&shp){endShape()}
   else if(mode==="draw"&&cur.length>=3&&near(p,cur[0],18)){finish()}
-  else if(mode==="move"){mvo=null;save()}
+  else if(mode==="move"){mvo=null;if(moved<6)home();else save()}
   else if(mode==="pan"&&moved<6&&cnt()===1)tap(p);
   delete ptr[e.pointerId];
   if(cnt()===0)mode=null;else if(mode==="pinch")mode="none";
@@ -676,6 +677,7 @@ function hitAt(w){for(var i=objs.length-1;i>=0;i--)if(pip(w,objs[i].pts))return 
 function tap(p){
   var w=s2w(p),hit=null;
   for(var i=objs.length-1;i>=0;i--)if(pip(w,objs[i].pts)){hit=objs[i];break}
+  var nowT=Date.now();if(!pickMode&&!ordMode&&lt2&&nowT-lt2.t<400&&Math.hypot(p.x-lt2.x,p.y-lt2.y)<28){lt2=null;home();return}lt2={t:nowT,x:p.x,y:p.y};
   if(pickMode&&hit&&hit.founded){pickHit(hit);return}
   if(ordMode){orderTap(p);return}
   var uu=pickMode?null:unitAt(p);
@@ -694,7 +696,7 @@ function showSheet(){
   sheet.className="glass show";var o=sel,h="";
   if(!o.founded){sheet.innerHTML='<div class="sh"><h3>新しい国</h3><button data-a="del">取消</button></div><div class="lbl">国名をつけて建国しましょう(人口2からスタート)</div><input id="nm" placeholder="国名" value="'+esc(o.name)+'"><div class="row" style="margin-top:8px"><button data-a="found" class="pri">建国する</button></div>';return}
   if(!editing){
-    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+'<button data-a="x">✕</button></div>'+pwHTML(o)+'<div id="live">'+liveHTML(o)+'</div>';
+    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+'</h3>'+((!online||o.mine)?'<button data-a="edit" class="pri">編集</button>':'')+((online&&(isHost||o.mine))?'<button data-a="del" class="danger">削除</button>':'')+'<button data-a="x">✕</button></div>'+pwHTML(o)+'<div id="live">'+liveHTML(o)+'</div>';
     if(tblHas(o)){h+="<table>";o.tbl.forEach(function(r,i){h+="<tr>"+r.map(function(c){return(i?"<td>":"<th>")+esc(c)+(i?"</td>":"</th>")}).join("")+"</tr>"});h+="</table>"}
     if(o.note)h+='<div class="note">'+esc(o.note)+"</div>";
     if(!tblHas(o)&&!o.note)h+='<div class="lbl">「編集」から名前・表・詳細を追加できます</div>';
@@ -707,7 +709,7 @@ function showSheet(){
   sheet.innerHTML=h;if(!editing)updPw(o);
 }
 sheet.addEventListener("click",function(e){
-  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(online&&!sel.mine&&a!=="x"){say("他のプレイヤーの国は操作できません");return}
+  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(a==="del"&&sel.founded&&!confirm("「"+(sel.name||"この国")+"」を削除しますか？"))return;if(online&&!sel.mine&&a!=="x"&&!(a==="del"&&isHost)){say("他のプレイヤーの国は操作できません");return}
   if(a==="x"){sel=null;hsel=null}
   else if(a==="edit"){editing=true}
   else if(a==="done"){editing=false}
@@ -721,7 +723,7 @@ sheet.addEventListener("click",function(e){
   else if(a==="fbuild"){var ft=bt.getAttribute("data-k"),fc=fCost(sel,ft);if(sel.founded&&fCanBuild(sel,ft)&&sel.pw>=fc){sel.pw-=fc;addFac(sel,ft,0);say(FT[ft].e+" "+sel.name+"で"+FT[ft].n+"の建設が始まった")}}
   else if(a==="auto"){sel.auto=!sel.auto;say(sel.auto?"🤖 "+sel.name+"は家を自動で運営する":"🧑 "+sel.name+"の家は手動運営")}
   else if(a==="found"){var nmv=sheet.querySelector("#nm");sel.name=(nmv&&nmv.value.trim())||"国"+sel.id;sel.founded=true;sel.pop=2;sel.people=[];sel.auto=false;say("🏳 "+sel.name+"が建国された");editing=false;pushNow(true)}
-  else if(a==="del"){var did=sel.id;if(sel.mine){if(sel.founded){delete world[myUid];saveWorld();bc({t:"d",u:myUid})}myObj=null;lastJ=""}objs.splice(objs.indexOf(sel),1);objs.forEach(function(o){if(o.ruler===did)o.ruler=null});sel=null;editing=false}
+  else if(a==="del"){var did=sel.id;if(sel.mine){if(sel.founded){delete world[myUid];saveWorld();bc({t:"d",u:myUid})}myObj=null;lastJ=""}else if(online&&isHost&&sel.uid){delete world[sel.uid];saveWorld();bc({t:"d",u:sel.uid})}objs.splice(objs.indexOf(sel),1);objs.forEach(function(o){if(o.ruler===did)o.ruler=null});sel=null;editing=false}
   save();showSheet();render();
 });
 sheet.addEventListener("input",function(e){
@@ -748,7 +750,7 @@ function bgPanel(){$("bgp").innerHTML='<h4>背景色</h4>'+rgbHTML(bg,"bg")+'<bu
 $("bgb").onclick=function(){$("wlp").classList.remove("show");var p=$("bgp");p.classList.toggle("show");if(p.classList.contains("show"))bgPanel()};
 $("bgp").addEventListener("input",function(e){if(e.target.hasAttribute("data-ch")){bg=onRGB(e.target);save();render()}});
 $("bgp").addEventListener("click",function(e){if(e.target.id==="bgr"){bg="#f6f8fb";bgPanel();save();render()}});
-window.addEventListener("resize",resize);
+window.addEventListener("resize",resize);if(window.visualViewport)visualViewport.addEventListener("resize",function(){render()});
 
 setTool("select");updUI();resize();home();requestAnimationFrame(loop);
 
@@ -759,9 +761,9 @@ function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(p!==ex&&p
 function applyOne(id,x){var n2=hid(id),o=byId(n2),d;try{d=JSON.parse(x)}catch(e){return}
   if(id===myUid){if(myObj&&objs.indexOf(myObj)>=0)return;o=null}
   if(!o){o={id:n2,founded:true,ruler:curRel[n2]||null,people:[]};objs.push(o)}
-  Object.keys(d).forEach(function(k){o[k]=d[k]});o.founded=true;
+  Object.keys(d).forEach(function(k){o[k]=d[k]});o.founded=true;o.uid=id;
   if(id===myUid){o.mine=true;myObj=o;lastJ=x}world[id]=x}
-function removeOne(id){var o=byId(hid(id));objs.forEach(function(q){if(q.ruler===hid(id))q.ruler=null});if(o&&o!==myObj)objs.splice(objs.indexOf(o),1);delete world[id]}
+function removeOne(id){var o=byId(hid(id));objs.forEach(function(q){if(q.ruler===hid(id))q.ruler=null});if(o){if(o===myObj){myObj=null;lastJ="";say("あなたの国はホストに削除されました")}if(sel===o){sel=null;showSheet()}objs.splice(objs.indexOf(o),1)}delete world[id]}
 /* ===== P2P（サーバーなし）：コードをコピペして直接つなぐ。ホストが中継 ===== */
 var NP=$("net"),ns={m:"home",code:""},hostPc=null;
 function enc(d){return btoa(JSON.stringify(d))}
