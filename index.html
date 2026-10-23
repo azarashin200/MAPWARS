@@ -691,6 +691,9 @@ function warStep(w,dt){
     var rush=!!(u.ord&&(u.ord.k==="home"||u.ord.k==="vas"));
     if(best){u.eng=best;best.dmg+=u.dps*(.8+Math.random()*.4)*dt*(rush?.6:1);best.last=u;u.hit=.3;fxFire(u,best);if(!rush)return}
     u.tt-=dt;if(u.tt<=0||!u.tg||u.tg.dead){u.tt=.5;u.tg=pick(w,u,en,eid)}
+    /* 固まり防止：4秒たっても動けていなければ、味方の住民のいる所へ一旦迂回してから再び目標へ */
+    u.sk=(u.sk||0)+dt;if(u.sk>=4){if(u.sx!=null&&!u.eng&&u.m==="land"&&u.tg&&!(u.esc>0)&&Math.hypot(u.tg.x-u.x,u.tg.y-u.y)>=3&&Math.hypot(u.x-u.sx,u.y-u.sy)<3){var PP=sidePeople(u.sd);if(PP.length){var DD=PP[Math.floor(Math.random()*PP.length)];u.esc=4;u.et={x:DD.x,y:DD.y}}}u.sx=u.x;u.sy=u.y;u.sk=0}
+    if(u.esc>0){u.esc-=dt;u.tg=u.et}
     if(u.m==="build"){fxBuild(u);u.bt+=dt;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;setShip(u,pickShip(O));wl(w,u.name+"が"+SHIP[u.sh].n+"で出港","sea")}return}
     if(!u.tg)return;var tx=u.tg.x,ty=u.tg.y;if(Math.hypot(tx-u.x,ty-u.y)<3)return;
     var sp=w.sp*(sea?(u.spf||1.5):(u.tk?1.4:1))*dt,a=Math.atan2(ty-u.y,tx-u.x),nx=u.x+Math.cos(a)*sp,ny=u.y+Math.sin(a)*sp;
@@ -698,7 +701,7 @@ function warStep(w,dt){
     else if(landAt(nx,ny)){u.x=nx;u.y=ny;u.lg=0;if(u.tk)fxDust(u)}
     else if(u.lg>0){u.x=nx;u.y=ny}
     else if(O.civ>=3){u.m="build";u.bt=0;wl(w,u.name+"が海岸で造船を開始（文明Lv"+O.civ+"）","sea")}
-    else{var of=[.6,-.6,1.2,-1.2,1.8,-1.8];for(var j=0;j<6;j++){var mx=u.x+Math.cos(a+of[j])*sp,my=u.y+Math.sin(a+of[j])*sp;if(landAt(mx,my)){u.x=mx;u.y=my;break}}}
+    else{var of=[.4,-.4,.8,-.8,1.2,-1.2,1.6,-1.6,2.1,-2.1,2.6,-2.6,3.14],bj=-1,bdd=1e9,st=Math.max(sp,1.5);for(var j=0;j<of.length;j++){var mx=u.x+Math.cos(a+of[j])*st,my=u.y+Math.sin(a+of[j])*st;if(landAt(mx,my)){var dd=Math.hypot(tx-mx,ty-my);if(dd<bdd){bdd=dd;bj=j}}}if(bj>=0){u.x+=Math.cos(a+of[bj])*st;u.y+=Math.sin(a+of[bj])*st}}
   });
   U.forEach(function(u){if(u.dmg){u.hp-=u.dmg;u.dmg=0}});
   U.forEach(function(u){if(u.hp>0||u.dead)return;u.dead=true;fxBoom(u);w.lost[u.sd]+=(u.m==="sea"?.5:1);var O=byId(u.o),k=u.last;loss(O,u,u.men);if(O.dep)O.dep[u.i]=false;
