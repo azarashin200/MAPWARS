@@ -232,7 +232,7 @@ function paintStep(w){var k=key(w.a,w.b),A=byId(w.a),B=byId(w.b),M=members(A).co
 function occR(w,id){var oid=id===w.a?w.b:w.a,t=0,p=0,k=key(w.a,w.b);members(byId(id)).forEach(function(m){var z=m.pz;if(!z||z.k!==k)return;t+=z.tot;for(var i=0;i<z.own.length;i++)if(z.own[i]===oid)p++});return t?p/t:0}
 function updOcc(w,dt){paintStep(w);w.ot=(w.ot||0)-dt;if(w.ot>0)return;w.ot=.5;w.oc=w.oc||{};w.ms=w.ms||{};
   [w.a,w.b].forEach(function(id){var r=occR(w,id);w.oc[id]=r;var lv=r>=.5?2:r>=.25?1:0;if(lv>(w.ms[id]||0)){w.ms[id]=lv;var L=byId(id),W=byId(id===w.a?w.b:w.a);wl(w,"🎨 "+W.name+"軍が"+L.name+"の国土の"+(lv*25)+"%以上を占領","land")}});flipVassals(w)}
-function occCheck(w){var sr=null;[w.a,w.b].forEach(function(id){var r=w.oc&&w.oc[id];if(r>=.7&&(sr==null||r>w.oc[sr]))sr=id});return sr}
+function occCheck(w){var sr=null;[w.a,w.b].forEach(function(id){var r=w.oc&&w.oc[id];if(r>=.9&&(sr==null||r>w.oc[sr]))sr=id});return sr}
 function drawPaint(o){var z=o.pz;if(!z)return;var any=false,i;for(i=0;i<z.own.length;i++)if(z.own[i]){any=true;break}if(!any)return;
   var cc={},s=view.s,cs=z.cs*s,j;ctx.save();ctx.clip();ctx.globalAlpha=.88;
   for(j=0;j<z.ny;j++){var y=view.y+(z.y0+j*z.cs)*s;if(y>chh||y+cs<0)continue;
@@ -667,7 +667,7 @@ function pick(w,u,en,eid){
   if(!en.length){var PP=sidePeople(eid);if(!PP.length)return null;var D=PP[(u.id*7+Math.floor(w.t/6))%PP.length];return {x:D.x,y:D.y}}
   var od=u.ord;if(!od)return null;/* 命令がない師団はその場で待機（射程に入った敵は撃つ） */
   if(od.k==="unit"){var T=null;en.forEach(function(e){if(e.id===od.id)T=e});if(T)return T;u.ord=null;wl(w,"🎯 "+u.name+"の標的を撃破したため待機に戻る","land");return null}
-  if(od.k==="home"||od.k==="vas")return homeTarget(w,u,eid);
+  if(od.k==="home"||od.k==="vas"){var nr=null,nd2=70;if(u.m!=="sea")en.forEach(function(e){if(e.m==="sea")return;var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<nd2){nd2=d;nr=e}});if(nr)return nr;return homeTarget(w,u,eid)}
   if(od.k==="def"){if(u.hx==null){u.hx=u.x;u.hy=u.y}var SR=byId(u.sd),inb=en.filter(function(e){if(e.m==="sea")return false;var L2=landAt(e.x,e.y);return L2&&root(L2)===SR});
     if(inb.length)return pickIn(w,u,inb);return{x:u.hx,y:u.hy}}
   return null}
