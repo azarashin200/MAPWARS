@@ -464,14 +464,19 @@ function declBtn(o){
 function showDecl(n){var e=$("decl");
   e.innerHTML='<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/><path d="M4 9l5-5M20 9l-5-5M4 15l5 5M20 15l-5 5"/></svg></div><div class="nm"><b>'+esc(n||"名称未設定の国")+'</b>からの宣戦布告</div><div class="tp">タップで開戦</div>';
   declT0=Date.now();e.classList.add("show");try{if(navigator.vibrate)navigator.vibrate([200,80,200])}catch(x){}}
+function openMyDv(ra,rb){
+  if(myObj&&myObj.founded){var mr=root(myObj);if(mr===ra||mr===rb){say("師団は命令するまで動きません。「師団」ボタンから攻め先を命令してください");openDv()}}}
 function beginWar(ua,ub){
   var A=uObj(ua),B=uObj(ub);if(!A||!B||!A.founded||!B.founded)return;
-  var ra=root(A),rb=root(B);if(ra===rb||busyRoot(ra)||busyRoot(rb))return;
+  var ra=root(A),rb=root(B);if(ra===rb)return;
+  /* 相手側の端末が先に開戦し、ホストからの同期で戦争がもう届いている場合も、師団命令パネルは開く */
+  if(wars.some(function(w){return key(w.a,w.b)===key(ra.id,rb.id)})){openMyDv(ra,rb);return}
+  if(busyRoot(ra)||busyRoot(rb))return;
   var wc=warCheck(ra,rb);if(!wc.ok){say(""+ra.name+"と"+rb.name+"は海を隔てており、どちらも造船できないため開戦できない");return}
   var nw={a:ra.id,b:rb.id,t:0,U:[],nid:0,land:wc.land};wars.push(nw);
   wl(null,""+ra.name+"が"+rb.name+"に宣戦布告","win");
   startWar(nw);fxDecl(ra);fxDecl(rb);say(""+ra.name+" vs "+rb.name+"：開戦");
-  if(myObj&&myObj.founded){var mr=root(myObj);if(mr===ra||mr===rb){say("師団は命令するまで動きません。「師団」ボタンから攻め先を命令してください");openDv()}}}
+  openMyDv(ra,rb)}
 /* 宣戦布告の受付（自分の操作でも、P2Pで届いた通知でも同じ処理）。DECL_MS後（またはオーバーレイのタップ）で開戦 */
 function startDecl(ua,ub){
   var A=uObj(ua),B=uObj(ub);if(!A||!B||!A.founded||!B.founded)return false;
@@ -733,8 +738,11 @@ $("dvp").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
 $("dvb").addEventListener("click",function(){if($("dvp").classList.contains("show"))$("dvp").classList.remove("show");else openDv()});
 ["wlb","bgb","netb"].forEach(function(i){$(i).addEventListener("click",function(){$("dvp").classList.remove("show")})});
 function pick(w,u,en,eid){
-  if(!en.length){var PP=sidePeople(eid);if(!PP.length)return null;var D=PP[(u.id*7+Math.floor(w.t/6))%PP.length];return {x:D.x,y:D.y}}
   var od=u.ord;if(!od)return null;/* 命令がない師団はその場で待機（射程に入った敵は撃つ） */
+  if(!en.length){/* 敵師団が全滅していても、命令どおりに動く（勝手に住民を追わない） */
+    if(od.k==="def"){if(u.hx==null){u.hx=u.x;u.hy=u.y}return{x:u.hx,y:u.hy}}
+    if(od.k==="unit"){u.ord=null;wl(w,""+u.name+"の標的がいなくなったため待機に戻る","land");return null}
+    var PP=sidePeople(eid);if(!PP.length)return null;var D=PP[(u.id*7+Math.floor(w.t/6))%PP.length];return {x:D.x,y:D.y}}
   if(od.k==="unit"){var T=null;en.forEach(function(e){if(e.id===od.id)T=e});if(T)return T;u.ord=null;wl(w,""+u.name+"の標的を撃破したため待機に戻る","land");return null}
   if(od.k==="auto"){var OO=byId(u.o),cd=en.filter(function(e){return e.m==="sea"?(u.m==="sea"||(OO&&OO.civ>=3)):true});if(cd.length)return pickIn(w,u,cd);return homeTarget(w,u,eid)}
   if(od.k==="home"||od.k==="vas")return homeTarget(w,u,eid);
@@ -1033,7 +1041,8 @@ function netTick(t){if(!isHost||!peers.length)return;var iv=wars.length?125:1000
 function applyW(m){var seen={};
   m.w.forEach(function(sw){var A=byId(sw.a),B=byId(sw.b);if(!A||!B)return;var k=key(sw.a,sw.b);seen[k]=1;
     var w=null;wars.forEach(function(x){if(key(x.a,x.b)===k)w=x});
-    if(!w){w={a:sw.a,b:sw.b,t:0,U:[],nid:0,land:sw.land};wars.push(w);if(!wlOpened){wlOpened=true;$("bgp").classList.remove("show");$("wlp").classList.add("show")}}
+    if(!w){w={a:sw.a,b:sw.b,t:0,U:[],nid:0,land:sw.land};wars.push(w);if(!wlOpened){wlOpened=true;$("bgp").classList.remove("show");$("wlp").classList.add("show")}
+      if(myObj&&myObj.founded){var mr2=root(myObj);if(mr2&&(mr2.id===w.a||mr2.id===w.b))openDv()}}
     ["t","nid","land","sp","d0","lost","n0","oc","ms"].forEach(function(f){if(sw[f]!==undefined)w[f]=sw[f]});
     var old={};w.U.forEach(function(u){old[u.id]=u});var nu=[],byid={};
     sw.U.forEach(function(s2){var u=old[s2.id],fresh=!u;if(!u)u={};var wasDead=!!u.dead;Object.keys(s2).forEach(function(f){if(f==="e"||f==="g"||f==="x"||f==="y"||f==="fxN"||f==="wkN"||f==="dsN"||f==="bdN")return;u[f]=s2[f]});if(!fresh&&!wasDead&&u.dead&&u.x!=null)fxBoom(u);
