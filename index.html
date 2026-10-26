@@ -952,7 +952,7 @@ function showDecl(n,rs){var e=$("decl");
   e.innerHTML='<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/><path d="M4 9l5-5M20 9l-5-5M4 15l5 5M20 15l-5 5"/></svg></div><div class="nm"><b>'+esc(n||"名称未設定の国")+'</b>からの宣戦布告</div>'+(rs?'<div class="rs"><i>宣戦布告の理由</i>'+esc(rs)+'</div>':"")+'<div class="tp">タップで開戦</div>';
   declT0=Date.now();e.classList.add("show");try{if(navigator.vibrate)navigator.vibrate([200,80,200])}catch(x){}}
 function openMyDv(ra,rb){
-  if(myObj&&myObj.founded){var mr=root(myObj);if(mr===ra||mr===rb){say("師団は命令するまで動きません。「師団」ボタンから攻め先を命令してください");openDv()}}}
+  if(myObj&&myObj.founded){var mr=root(myObj);if(mr===ra||mr===rb){if(myObj.ruler)say("支配下の国は師団に命令できません。宗主国が指揮します");else{say("師団は命令するまで動きません。「師団」ボタンから攻め先を命令してください");openDv()}}}}
 function beginWar(ua,ub,rsn){
   var A=uObj(ua),B=uObj(ub);if(!A||!B||!A.founded||!B.founded)return;
   var ra=root(A),rb=root(B);if(ra===rb)return;
@@ -1225,7 +1225,9 @@ function ordTxt(u,w){var od=u.ord;if(!od)return"待機（命令待ち）";
   if(od.k==="def")return"自国防衛（侵入した敵を迎撃）";
   var ww=w||(usel&&usel.w),T=null;if(ww)ww.U.forEach(function(e){if(e.id===od.id)T=e});return"敵師団「"+(T?T.name:"?")+"」を攻撃"}
 var bulk=null,bulkW=null,dvSel={},dvSig="",dvLast=0;
-function canCmd(u){return !online||!!(myObj&&myObj.founded&&root(myObj).id===u.sd)}
+/* 支配された（属国の）オンラインプレイヤーは師団に命令できない：命令できるのは宗主国だけ */
+function vassalMe(){return online&&!!(myObj&&myObj.founded&&myObj.ruler)}
+function canCmd(u){return !online||!!(myObj&&myObj.founded&&!myObj.ruler&&root(myObj).id===u.sd)}
 function hasVas(w,u){var E=byId(u.sd===w.a?w.b:w.a);return!!E&&members(E).length>1}
 function ordWho(us){return us.length===1?us[0].name:us.length+"個師団"}
 function ukey(u){return u.o+"_"+u.i}
@@ -1241,9 +1243,9 @@ function recvOrd(m){if(!m||!m.l)return;m.l.forEach(function(e){wars.forEach(func
 function showCmd(){var p=$("cmd");if(!usel){p.className="glass";return}p.className="glass show";var u=usel.u;
   p.innerHTML='<div class="sh"><h3>'+esc(u.name)+((u.gk|0)>0?'（'+GK[u.gk|0].n+'）':'')+'</h3><button data-o="x">閉じる</button></div><div id="cmdl" class="lbl"></div>'+
   '<div class="ups"><button data-o="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-o="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-o="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-o="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-o="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-o="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
-  updCmd()}
+  if(vassalMe()){var ub=p.querySelector(".ups");if(ub)ub.style.display="none"}updCmd()}
 function updCmd(){if(!usel)return;var u=usel.u,el=$("cmdl");if(!el)return;var rm=Math.max(1,Math.ceil(u.men*Math.max(0,u.hp)/u.maxhp)),st=u.m==="sea"?"海上":u.m==="build"?"造船中":"陸上";
-  el.innerHTML='人数 <b>'+rm+'</b>/'+u.men+'人 ・ '+st+' ・ 命令: <b>'+esc(ordTxt(u))+'</b>'+(canCmd(u)?'':'（敵の師団）')+(ordMode?'<br>指示: 標的にする<b>敵の師団</b>をタップしてください':'');
+  el.innerHTML='人数 <b>'+rm+'</b>/'+u.men+'人 ・ '+st+' ・ 命令: <b>'+esc(ordTxt(u))+'</b>'+(canCmd(u)?'':(vassalMe()&&u.sd===root(myObj).id?'（宗主国が指揮）':'（敵の師団）'))+(ordMode?'<br>指示: 標的にする<b>敵の師団</b>をタップしてください':'');
   var od=u.ord;[].forEach.call($("cmd").querySelectorAll(".ups [data-o]"),function(b){var a=b.getAttribute("data-o"),on=a==="hold"?(!od&&!ordMode):a==="auto"?(!ordMode&&od&&od.k==="auto"):a==="unit"?(ordMode==="unit"||(!ordMode&&od&&od.k==="unit")):a==="home"?(!ordMode&&od&&od.k==="home"):a==="vas"?(!ordMode&&od&&od.k==="vas"):(!ordMode&&od&&od.k==="def");b.classList.toggle("cur",!!on)})}
 function closeCmd(){usel=null;ordMode=false;bulk=null;bulkW=null;$("cmd").className="glass"}
 function endPick(){ordMode=false;var was=bulk;bulk=null;bulkW=null;if(was){dvSel={};$("dvp").classList.add("show");drawDv(true)}updCmd();render()}
@@ -1258,7 +1260,7 @@ function orderTap(p){var us=bulk||(usel?[usel.u]:[]),w=bulk?bulkW:(usel&&usel.w)
   endPick()}
 $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-o]");if(!b||!usel)return;var a=b.getAttribute("data-o"),u=usel.u,w=usel.w,one=[u];
   if(a==="x"){closeCmd();render();return}
-  if(!canCmd(u)){say("命令できるのは自軍の師団だけです");return}
+  if(!canCmd(u)){say(vassalMe()?"支配下の国は師団に命令できません（宗主国が指揮します）":"命令できるのは自軍の師団だけです");return}
   bulk=null;bulkW=null;
   if(a==="hold"){applyOrd(one,w,null);ordMode=false;say(""+u.name+"は待機する")}
   else if(a==="home"){applyOrd(one,w,{k:"home"});ordMode=false;say(""+u.name+"が相手本土へ進軍する")}
@@ -1268,13 +1270,13 @@ $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   else if(a==="auto"){applyOrd(one,w,{k:"auto"});ordMode=false;say(""+u.name+"は自動で行動する")}
   updCmd();render()});
 /* ===== 師団管理画面（創設・強化・復活と、戦時の命令）：自軍の師団と構成を一覧し、選んだ師団にまとめて命令 ===== */
-function mySide(){if(!myObj||!myObj.founded)return null;var me=root(myObj),w=null;wars.forEach(function(x){if(x.a===me.id||x.b===me.id)w=x});if(!w)return null;
+function mySide(){if(!myObj||!myObj.founded||vassalMe())return null;var me=root(myObj),w=null;wars.forEach(function(x){if(x.a===me.id||x.b===me.id)w=x});if(!w)return null;
   var L=w.U.filter(function(u){return!u.dead&&u.sd===me.id});L.sort(function(a,b){return a.o-b.o||a.i-b.i});return{w:w,me:me,L:L}}
 function dvComp(u){var f=Math.max(0,u.hp)/u.maxhp,rm=Math.max(1,Math.ceil(u.men*f)),kd=u.m==="sea"?(u.sh&&SHIP[u.sh]?SHIP[u.sh].n:"船"):u.m==="build"?"造船中":GK[u.gk|0].n;return kd+" ・ 人数 "+rm+"/"+u.men+"人 ・ 耐久 "+Math.round(f*100)+"%"}
 function openDv(){["wlp","bgp","net"].forEach(function(i){$(i).classList.remove("show")});$("dvp").classList.add("show");drawDv(true)}
 function updDvSel(){var p=$("dvp"),n=0,t=0;[].forEach.call(p.querySelectorAll(".dvr"),function(r){var on=!!dvSel[r.getAttribute("data-k")];t++;if(on)n++;r.classList.toggle("on",on);});var c=p.querySelector(".dvn");if(c)c.textContent="選択 "+n+"/"+t}
 function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();if(!W)return;
-  if(!s){W.innerHTML='<div class="lbl">戦争中ではありません。宣戦布告する（または宣戦布告される）と、この下に従来の「師団命令」（師団を選んで進軍先を命令）が出ます。</div>';dvSig="";return}
+  if(!s){if(vassalMe()){W.innerHTML='<div class="lbl"><b>師団命令</b> ／ 支配下の国は師団に命令できません。師団は宗主国（'+esc(root(myObj).name||"?")+'）が指揮します。</div>';dvSig="";return}W.innerHTML='<div class="lbl">戦争中ではありません。宣戦布告する（または宣戦布告される）と、この下に従来の「師団命令」（師団を選んで進軍先を命令）が出ます。</div>';dvSig="";return}
   var keys=s.L.map(ukey),E0=byId(s.w.a===s.me.id?s.w.b:s.w.a),sig=keys.join(",")+"|"+s.L.map(function(u){return u.name}).join(",")+"|"+s.me.name+"|"+(E0?E0.name:"");Object.keys(dvSel).forEach(function(k){if(keys.indexOf(k)<0)delete dvSel[k]});
   if(force||sig!==dvSig||!p.querySelector(".dvl")){var old=p.querySelector(".dvl"),sc=old?old.scrollTop:0,E=byId(s.w.a===s.me.id?s.w.b:s.w.a),nG=[0,0,0,0],rows="";
     s.L.forEach(function(u){nG[u.gk|0]++;var k=ukey(u),O=byId(u.o);rows+='<div class="dvr" data-d="t" data-k="'+k+'"><span class="cb"></span><div class="dvc"><b>'+esc(u.name)+'</b> <span class="dvt" data-k="'+k+'">'+esc(dvComp(u))+'</span><div class="dvm dvo" data-k="'+k+'">命令: '+esc(ordTxt(u,s.w))+'</div></div><button data-d="g" data-k="'+k+'">表示</button></div>'});
@@ -1398,23 +1400,69 @@ function warStep(w,dt){
   return true}
 /* ===== 8bitドット絵の人：住民と歩兵（小さなドットで描いて歩かせる） ===== */
 var SPR={civ:[["..hhh..", ".hhhhh.", ".hsssh.", ".sksks.", "..sss..", ".ccccc.", "scccccs", "s.ccc.s", "..ddd..", "..d.d..", "..b.b.."], ["..hhh..", ".hhhhh.", ".hsssh.", ".sksks.", "..sss..", ".ccccc.", "scccccs", "s.ccc.s", "..ddd..", ".d...d.", ".b...b."], ["..hhh..", ".hhhhh.", ".hsssh.", ".sksks.", "..sss..", ".ccccc.", "scccccs", "s.ccc.s", "..ddd..", "..d.d..", "..b.b.."], ["..hhh..", ".hhhhh.", ".hsssh.", ".sksks.", "..sss..", ".ccccc.", "scccccs", "s.ccc.s", "..ddd..", "...d.d.", "...b.b."]],sol:[["..hhhhh..", ".hhhhhhh.", "..sksks..", "...sss...", "..ccccc.g", ".scccccsg", ".scccccsg", "..ccccc.g", "..ddddd.g", "...d.d...", "...b.b..."], ["..hhhhh..", ".hhhhhhh.", "..sksks..", "...sss...", "..ccccc.g", ".scccccsg", ".scccccsg", "..ccccc.g", "..ddddd.g", "..d...d..", "..b...b.."], ["..hhhhh..", ".hhhhhhh.", "..sksks..", "...sss...", "..ccccc.g", ".scccccsg", ".scccccsg", "..ccccc.g", "..ddddd.g", "...d.d...", "...b.b..."], ["..hhhhh..", ".hhhhhhh.", "..sksks..", "...sss...", "..ccccc.g", ".scccccsg", ".scccccsg", "..ccccc.g", "..ddddd.g", "....d.d..", "....b.b.."]],aim:[["...hhhh....", "..hhhhhh...", "..hhsssk...", "....ssss...", "...cccc....", ".gccccsgggg", "..ccccc....", "..ccccc....", "..ddddd....", "...d.d.....", "...b.bb...."], ["...hhhh....", "..hhhhhh...", "..hhsssk...", "....ssss...", "...cccc....", ".gccccsgggg", "..ccccc....", "..ccccc....", "..ddddd....", "...d.d.....", "...b.bb...."]]};
-
-/* ===== 兵器も人型ドットに：砲兵・装甲車・戦車・艦船 ===== */
+/* ===== 兵器ドット絵（人なし）：砲兵・装甲車・戦車・艦船。階級で大きさ・全長・砲数が変わる ===== */
+var VTIP={};
 (function(){
-function mk(top,legsA,legsB){return [top.concat(legsA),top.concat(legsB)]}
-/* 砲兵：長い大砲を担ぐ人 */
-SPR.art=mk(["..........mmm","...hhhh..mmm.","..hhhhhhmm...","..sksks.mm...","...sss.mm....",".ccccccmmm...","scccccsmm....","s.ccccmm.....","..ddddd......","..ddddd......"],["..d...d......","..b...b......"],["...d.d.......","...b.b......."]);
-/* 装甲車：装甲ヘルメットの人＋鉄の胴 */
-SPR.apc=mk([".mmmmmmm.","mmhhhhhmm","mmsksksmm",".mmsssmm.","mmmmmmmmm","mmmcccmmm","smmmmmmms","smmmmmmms","mmddddddm"],["..d...d..","..b...b.."],["...d.d...","...b.b..."]);
-/* 戦車：巨大な鉄の人＋砲身の腕 */
-SPR.tnk=mk(["...mmmmmm....","..mmhhhhmm...","..mmsksksmm..","...mmmsssmm..","..mmmmmmmmmmm","mmmmccccmmmmm","mmmmccccmmmmm","smmmmmmmmmmmw","smmmmmmmmmmm.","..mmddddmm...","..mmddddmm..."],["..mm....mm...","..bb....bb..."],["...mm..mm....","...bb..bb...."]);
-/* 艦船：水兵（小型=駆逐/通常、巡洋、戦艦で大きく） */
-SPR.sai=mk(["...wwwww...","..wwwwwww..","...sksks...","....sss....","..ccccccc..",".sccwwwccs.",".scccccccs.","..ccwcwcc..","..ddddddd.."],["..d.....d..","..b.....b.."],["...d...d...","...b...b..."]);
+function G(w,h){var g=[];for(var j=0;j<h;j++){g.push([]);for(var i=0;i<w;i++)g[j].push(".")}return g}
+function R(g,x,y,w,h,c){for(var j=y;j<y+h;j++)for(var i=x;i<x+w;i++)if(g[j]&&i>=0&&i<g[j].length)g[j][i]=c}
+function P(g,x,y,c){R(g,x,y,1,1,c)}
+function D(g,cx,cy,r,c,h,f){for(var dy=-r;dy<=r;dy++)for(var dx=-r;dx<=r;dx++)if(dx*dx+dy*dy<=r*r+1)P(g,cx+dx,cy+dy,c);P(g,cx,cy,h);if(r>=2){if(f){P(g,cx,cy-1,h);P(g,cx,cy+1,h)}else{P(g,cx-1,cy,h);P(g,cx+1,cy,h)}}}
+function S(g){return g.map(function(r){return r.join("")})}
+/* 戦車：履帯・車体・主砲塔＋前部副砲塔（主砲＋副砲の2門） */
+function tank(f){var W=28,H=13,g=G(W,H);
+  R(g,2,10,20,3,"n");P(g,2,10,".");P(g,21,10,".");P(g,2,12,".");P(g,21,12,".");
+  for(var k=0;k<5;k++)D(g,4+k*4+(f?2:0)>20?3:4+k*4+(f?2:0),11,0,"m","m");
+  R(g,3,7,19,3,"c");R(g,3,9,19,1,"d");P(g,22,8,"c");P(g,22,9,"c");
+  R(g,6,4,11,3,"c");R(g,7,3,9,1,"c");R(g,6,6,11,1,"d");R(g,9,2,3,1,"d");P(g,10,1,"d");
+  R(g,17,4,11,1,"l");R(g,17,5,11,1,"m");R(g,25,4,3,2,"n");
+  R(g,18,7,4,2,"m");R(g,22,7,5,1,"l");
+  VTIP.tnk=[27,5];return S(g)}
+/* 装甲車：高い車体・窓・小砲塔（2丁の機関砲）・4輪 */
+function apc(f){var W=20,H=11,g=G(W,H);
+  R(g,1,3,18,5,"c");R(g,1,6,18,1,"d");P(g,19,4,"c");
+  R(g,3,4,3,2,"l");R(g,8,4,3,2,"l");R(g,14,4,3,2,"m");
+  R(g,10,1,6,2,"c");R(g,10,2,6,1,"d");
+  R(g,16,1,4,1,"l");R(g,16,2,3,1,"m");
+  D(g,4,8,2,"b","m",f);D(g,15,8,2,"b","m",f);
+  VTIP.apc=[19,1];return S(g)}
+/* 砲兵：長砲身の野砲（盾・大車輪・脚） */
+function art(f){var W=26,H=13,g=G(W,H);
+  for(var t=0;t<17;t++){var x=8+t,y=7-Math.floor(t*.38);P(g,x,y,"l");P(g,x,y+1,"m")}
+  R(g,5,5,2,6,"m");R(g,7,5,2,6,"l");R(g,5,8,6,2,"c");R(g,5,9,6,1,"d");
+  for(var u=0;u<7;u++)P(g,5-u,9+Math.floor(u/3),"d");
+  D(g,9,10,3,"b","m",f);
+  VTIP.art=[24,7-Math.floor(16*.38)];return S(g)}
+/* 艦船共通：船体は国の色。spec = {W,H,tr:[[x,up,n,len]...],br:[x,w,h],fn:[x...],ms:x} */
+function ship(sp,f,key){var W=sp.W,H=sp.H,g=G(W,H),dk=H-4,i;
+  R(g,2,dk,W-4,1,"m");R(g,1,dk+1,W-2,2,"c");R(g,3,dk+3,W-7,1,"d");P(g,W-2,dk-1,"c");P(g,W-1,dk,"c");P(g,W-1,dk+1,"c");R(g,1,dk+2,W-2,1,"d");
+  for(i=0;i<W-4;i+=4)P(g,3+i,dk+1,"l");
+  var b=sp.br;R(g,b[0],dk-b[2],b[1],b[2],"w");R(g,b[0]+1,dk-b[2]+1,b[1]-2,1,"b");if(b[2]>3)R(g,b[0]+1,dk-b[2]+3,b[1]-2,1,"b");
+  if(b[2]>=5)R(g,b[0]+2,dk-b[2]-2,b[1]-4,2,"w");
+  var mh=sp.mh||3;R(g,sp.ms,dk-b[2]-mh-(b[2]>=5?2:0),1,mh,"m");
+  sp.fn.forEach(function(x){R(g,x,dk-5,sp.fw||3,5,"n");R(g,x,dk-5,sp.fw||3,1,"b")});
+  var tip=[0,0];
+  sp.tr.slice().sort(function(a,b){return a[1]-b[1]}).forEach(function(t){var x=t[0],up=t[1],n=t[2],len=t[3],top=dk-3-3*up;
+    if(up)R(g,x+1,dk-3,3,3*up,"n");
+    R(g,x,top,5,3,"m");R(g,x,top+2,5,1,"n");P(g,x+1,top,"l");
+    var rows=n===1?[top+1]:[top,top+2];
+    rows.forEach(function(r){R(g,x+5,r,len,1,"l");if(x+5+len-1>tip[0])tip=[x+5+len-1,r]})});
+  VTIP[key]=tip;return S(g)}
+var SH={
+nm:{W:26,H:12,tr:[[16,0,1,5]],br:[7,6,3],fn:[],ms:9,mh:3},
+ds:{W:36,H:13,tr:[[26,0,1,5],[4,0,1,5]],br:[14,6,3],fn:[22],fw:2,ms:17,mh:4},
+cr:{W:48,H:15,tr:[[3,0,2,6],[37,0,2,6]],br:[16,8,5],fn:[27,32],ms:19,mh:4},
+bb:{W:64,H:18,tr:[[2,0,2,6],[9,1,2,6],[43,1,2,6],[51,0,2,6]],br:[23,9,6],fn:[35,41],fw:4,ms:27,mh:5}};
+SPR.tnk=[tank(0),tank(1)];SPR.apc=[apc(0),apc(1)];SPR.art=[art(0),art(1)];
+["nm","ds","cr","bb"].forEach(function(k){SPR["s_"+k]=[ship(SH[k],0,"s_"+k),ship(SH[k],1,"s_"+k)]});
 })();
+function vps(){return view.s>=2.2?2:1}
+function vsz(u){if(u.m==="sea"){var r=SPR["s_"+(u.sh||"nm")][0];return[r[0].length,r.length]}var k=u.gk===1?"art":u.gk===2?"apc":"tnk",q=SPR[k][0];return[q[0].length,q.length]}
+function vbot(u){return(u.m==="sea"?4:6)*vps()}
+
 var SPC={},PV=new WeakMap(),SKIN=["#f2c9a0","#e0ac7e","#c68e5f","#8d5a3b"],HAIR=["#2b1d12","#5a3a1e","#c9a227","#1a1a1a","#8a8a8a"];
 function sprImg(kind,fr,col,sk,hr){
   var key=kind+fr+col+sk+hr,c=SPC[key];if(c)return c;
-  var rows=SPR[kind][fr],w=rows[0].length,h=rows.length,cv2=document.createElement("canvas");cv2.width=w;cv2.height=h;var g=cv2.getContext("2d"),i,j,ch,P={h:hr,s:sk,k:"#1b1414",c:col,d:shade(col,.5),b:"#1a1a1a",g:"#4a3f35",m:"#6b7684",w:"#f4f6fa"};
+  var rows=SPR[kind][fr],w=rows[0].length,h=rows.length,cv2=document.createElement("canvas");cv2.width=w;cv2.height=h;var g=cv2.getContext("2d"),i,j,ch,P={h:hr,s:sk,k:"#1b1414",c:col,d:shade(col,.5),b:"#1a1a1a",g:"#4a3f35",m:"#6b7684",w:"#f4f6fa",l:"#aab3bf",n:"#3a4350"};
   for(j=0;j<h;j++)for(i=0;i<w;i++){ch=rows[j].charAt(i);if(ch!=="."){g.fillStyle=P[ch];g.fillRect(i,j,1,1)}}
   return SPC[key]=cv2}
 /* x=足元の中心, y=足元。ps=ドット1個の大きさ(整数)。flip=左向き */
@@ -1462,27 +1510,27 @@ function drawWar(){wars.forEach(function(w){
     if(u.hit>0){ctx.beginPath();ctx.arc(s.x,s.y,9+(.3-u.hit)*50,0,7);ctx.strokeStyle="rgba(229,72,77,"+u.hit*3+")";ctx.stroke();ctx.strokeStyle=dk}
     if(u.m==="sea"){drawShip(s,u)}
     else if((u.gk|0)>=1){var tt=u.eng||u.tg,fl=false,T2=(typeof lastT==="number"&&lastT?lastT:0);if(tt){var te=w2s([tt.x,tt.y]);fl=te.x<s.x}
-      if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;var mv2=u._mv!=null&&T2-u._mv<260,ps2=view.s>=2.2?3:2,kd=u.gk===1?"art":u.gk===2?"apc":"tnk",fr=mv2?((T2/200|0)%2):0;
-      ctx.save();ctx.imageSmoothingEnabled=false;sprDraw(sprImg(kd,fr,c,SKIN[(u.id|0)&3],shade(c,.45)),s.x,s.y+10*ps2/2*1.2,ps2,fl);
-      if(u.eng&&((T2/110|0)%3===0)){var dr=fl?-1:1,mx=s.x+dr*(u.gk===3?8:u.gk===1?9:6)*ps2,my=s.y-(u.gk===3?2:4)*ps2/2;ctx.fillStyle="#fff3a0";ctx.fillRect(dr>0?mx:mx-2*ps2,my,2*ps2,2*ps2);ctx.fillStyle="#ff9a2e";ctx.fillRect(dr>0?mx+2*ps2:mx-3*ps2,my+ps2/2,ps2,ps2)}
+      if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
+      var mv2=u._mv!=null&&T2-u._mv<260,ps2=vps(),kd=u.gk===1?"art":u.gk===2?"apc":"tnk",fr=mv2?((T2/160|0)%2):0;
+      ctx.save();ctx.imageSmoothingEnabled=false;sprDraw(sprImg(kd,fr,c,"#000","#000"),s.x,s.y+vbot(u),ps2,fl);
+      if(u.eng&&((T2/110|0)%3===0)){var dr=fl?-1:1,tp=VTIP[kd],iw=vsz(u)[0],ih=vsz(u)[1],mx=s.x+dr*(tp[0]+1-iw/2)*ps2,my=s.y+vbot(u)-(ih-tp[1])*ps2;ctx.fillStyle="#fff3a0";ctx.fillRect(dr>0?mx:mx-2*ps2,my-ps2,2*ps2,2*ps2);ctx.fillStyle="#ff9a2e";ctx.fillRect(dr>0?mx+2*ps2:mx-3*ps2,my-ps2/2,ps2,ps2)}
       ctx.restore()}
     else{drawSquad(u,s,c)}
     var rm=Math.max(1,Math.ceil(u.men*Math.max(0,u.hp)/u.maxhp)),cr=h2r(c),cl2=(.299*cr[0]+.587*cr[1]+.114*cr[2])/255;ctx.font="800 11px -apple-system,sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
-    if(u.m==="sea"){ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.strokeText(rm,s.x+(shipSc(u)*10+9),s.y+1);ctx.fillStyle="#26303d";ctx.fillText(rm,s.x+(shipSc(u)*10+9),s.y+1)}
+    if(u.m==="sea"){ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.strokeText(rm,s.x+vsz(u)[0]*vps()/2+8,s.y+1);ctx.fillStyle="#26303d";ctx.fillText(rm,s.x+vsz(u)[0]*vps()/2+8,s.y+1)}
     else if((u.gk|0)<1){var sq=view.s>=2.2?2:1,lx=s.x+13.5*sq+7;ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.strokeText(rm,lx,s.y+1);ctx.fillStyle="#26303d";ctx.fillText(rm,lx,s.y+1)}
-    else{ctx.fillStyle=cl2>.45?"#1b2230":"#fff";ctx.fillText(rm,s.x,s.y+1)}
+    else{var lx2=s.x+vsz(u)[0]*vps()/2+8;ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.strokeText(rm,lx2,s.y+1);ctx.fillStyle="#26303d";ctx.fillText(rm,lx2,s.y+1)}
     ctx.fillStyle="rgba(0,0,0,.35)";ctx.fillRect(s.x-11,s.y+13,22,3);ctx.fillStyle="#30a46c";ctx.fillRect(s.x-11,s.y+13,22*Math.max(0,u.hp/u.maxhp),3);
     ctx.font="700 10px -apple-system,'Hiragino Sans',sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";var tx=u.name+(u.m!=="sea"&&(u.gk|0)>0?"（"+GK[u.gk|0].n+"）":"")+(u.m==="build"?" 造船中":"")+(u.m==="sea"&&u.sh?"（"+SHIP[u.sh].n+"）":"")+(u.ord?" [命令]":"");
-    ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.strokeText(tx,s.x,s.y-15);ctx.fillStyle="#26303d";ctx.fillText(tx,s.x,s.y-15)})})}
-function drawShip(s,u){var T2=(typeof lastT==="number"&&lastT?lastT:0),k=u.sh||"nm",ps2=k==="bb"?4:k==="cr"?3:2,tt=u.eng||u.tg,fl=false,c=ctx.fillStyle;
+    var ny=s.y-15;if(u.m==="sea"||(u.gk|0)>=1)ny=Math.min(ny,s.y+vbot(u)-vsz(u)[1]*vps()-4);ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.strokeText(tx,s.x,ny);ctx.fillStyle="#26303d";ctx.fillText(tx,s.x,ny)})})}
+function drawShip(s,u){var T2=(typeof lastT==="number"&&lastT?lastT:0),k=u.sh||"nm",ps2=vps(),tt=u.eng||u.tg,fl=false,c=ctx.fillStyle,kk="s_"+k,sz=vsz(u);
   if(tt){var te=w2s([tt.x,tt.y]);fl=te.x<s.x}
+  if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
+  var bob=Math.round(Math.sin(T2/300+(u.id|0))*ps2*.7),by=s.y+vbot(u)+bob;
   ctx.save();ctx.imageSmoothingEnabled=false;
-  /* 小さな船(波に揺れる板)の上に立つ水兵 */
-  var bw=(k==="bb"?30:k==="cr"?24:k==="ds"?22:18),bob=Math.sin(T2/260+(u.id|0))*1.2;
-  ctx.fillStyle="#7a5a3a";ctx.fillRect(Math.round(s.x-bw/2),Math.round(s.y+1+bob),bw,3);ctx.fillStyle="#4a3524";ctx.fillRect(Math.round(s.x-bw/2+2),Math.round(s.y+4+bob),bw-4,1);
-  var mv2=u._mv!=null&&T2-u._mv<260;if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
-  sprDraw(sprImg("sai",((T2/220|0)%2),c,SKIN[(u.id|0)&3],"#f4f6fa"),s.x,s.y+1+bob,ps2,fl);
-  if(u.eng&&((T2/110|0)%3===0)){var dr=fl?-1:1;ctx.fillStyle="#fff3a0";ctx.fillRect(s.x+dr*6*ps2-(dr<0?3:0),s.y-5*ps2,3,3);ctx.fillStyle="#ff9a2e";ctx.fillRect(s.x+dr*6*ps2+(dr>0?3:-6),s.y-5*ps2+1,3,2)}
+  sprDraw(sprImg(kk,((T2/260|0)%2),c,"#000","#000"),s.x,by,ps2,fl);
+  var hw=sz[0]*ps2/2;ctx.fillStyle="rgba(255,255,255,.6)";ctx.fillRect(Math.round(s.x-hw-ps2),by-ps2,ps2*3,ps2);ctx.fillRect(Math.round(s.x+hw-2*ps2),by,ps2*3,ps2);ctx.fillRect(Math.round(s.x-hw*.3),by,ps2*4,ps2);
+  if(u.eng&&((T2/110|0)%3===0)){var dr=fl?-1:1,tp=VTIP[kk],mx=s.x+dr*(tp[0]+1-sz[0]/2)*ps2,my=by-(sz[1]-tp[1])*ps2;ctx.fillStyle="#fff3a0";ctx.fillRect(dr>0?mx:mx-3*ps2,my-ps2,3*ps2,2*ps2);ctx.fillStyle="#ff9a2e";ctx.fillRect(dr>0?mx+3*ps2:mx-4*ps2,my-ps2/2,ps2,ps2)}
   ctx.restore();ctx.fillStyle=c}
 function cost(l){return 20+10*l}
 var UP=[["civ","文明"],["mil","軍事力"],["edu","教育"]];
@@ -1757,7 +1805,7 @@ function applyW(m){var seen={};
   m.w.forEach(function(sw){var A=byId(sw.a),B=byId(sw.b);if(!A||!B)return;var k=key(sw.a,sw.b);seen[k]=1;
     var w=null;wars.forEach(function(x){if(key(x.a,x.b)===k)w=x});
     if(!w){w={a:sw.a,b:sw.b,t:0,U:[],nid:0,land:sw.land};wars.push(w);if(!wlOpened){wlOpened=true;$("bgp").classList.remove("show");$("wlp").classList.add("show")}
-      if(myObj&&myObj.founded){var mr2=root(myObj);if(mr2&&(mr2.id===w.a||mr2.id===w.b))openDv()}}
+      if(myObj&&myObj.founded){var mr2=root(myObj);if(mr2&&!myObj.ruler&&(mr2.id===w.a||mr2.id===w.b))openDv()}}
     ["t","nid","land","sp","d0","lost","n0","oc","ms"].forEach(function(f){if(sw[f]!==undefined)w[f]=sw[f]});
     var old={};w.U.forEach(function(u){old[u.id]=u});var nu=[],byid={};
     sw.U.forEach(function(s2){var u=old[s2.id],fresh=!u;if(!u)u={};var wasDead=!!u.dead;Object.keys(s2).forEach(function(f){if(f==="e"||f==="g"||f==="x"||f==="y"||f==="fxN"||f==="wkN"||f==="dsN"||f==="bdN")return;u[f]=s2[f]});if(!fresh&&!wasDead&&u.dead&&u.x!=null)fxBoom(u);
