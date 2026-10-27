@@ -297,6 +297,11 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 <div id="trc"></div>
 <div id="rsn"><div class="bx"><h3>宣戦布告</h3><p id="rsnT"></p><textarea id="rsnI" maxlength="100" placeholder="宣戦布告の理由（相手に表示されます・100字まで）"></textarea><div class="row"><span class="cnt" id="rsnC">0/100</span><button id="rsnX">やめる</button><button id="rsnOK" class="danger">宣戦布告する</button></div></div></div>
 <script>
+/* ★ Supabase設定：Supabaseのプロジェクトの「Project URL」と「anon(publishable) key」を下に貼る。空のままでも、ゲーム内の「接続」→「Supabase設定」から入力できます */
+window.SB_CONFIG={url:"https://xmopbdwajsklhbsivkgz.supabase.co",key:"sb_publishable_PHHzE4MFF3Wr5-clsl7V9Q_VRHLg6np"};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
 (function(){
 var $=function(i){return document.getElementById(i)};
 var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={};/* 再読み込みで全てリセット：IDも国も毎回新しく、端末には保存しない */myUid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36);myNid=hid(myUid);try{localStorage.removeItem("mapwars_uid");localStorage.removeItem("mapwars_world")}catch(e){}
@@ -1804,7 +1809,7 @@ setTool("select");updUI();resize();home();requestAnimationFrame(loop);
 Object.keys(world).forEach(function(id){applyOne(id,world[id])});
 $("who").textContent="この端末";render();
 function saveWorld(){}
-function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(p!==ex&&p.readyState==="open")p.send(s)})}
+function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(!p.sb&&p!==ex&&p.readyState==="open")p.send(s)});if(rt&&peers.some(function(p){return p.sb})){rtSend(s,null,ex&&ex.sb?ex.id:null)}}
 function applyOne(id,x){var n2=hid(id),o=byId(n2),d;try{d=JSON.parse(x)}catch(e){return}
   if(id===myUid){if(myObj&&objs.indexOf(myObj)>=0)return;o=null}
   if(!o){o={id:n2,founded:true,ruler:null,people:[]};objs.push(o)}
@@ -1873,17 +1878,60 @@ function applyW(m){var seen={};
 function guestFx(){if(isHost||!peers.length)return;wars.forEach(function(w){w.U.forEach(function(u){if(u.dead||u.x==null)return;if(u.eng&&!u.eng.dead)fxFire(u,u.eng);if(u.m==="sea")fxWake(u);else if(u.m==="build")fxBuild(u);else if((u.gk|0)>=2&&u.nx!=null&&Math.hypot(u.nx-u.x,u.ny-u.y)>1.5)fxDust(u)})})}
 function smoothW(dt){if(isHost||!peers.length)return;var f=Math.min(1,dt*10);wars.forEach(function(w){w.U.forEach(function(u){if(u.nx!=null&&!u.dead){u.x+=(u.nx-u.x)*f;u.y+=(u.ny-u.y)*f}})})}
 function netUI(){var h='<h4>接続 <button id="nx">閉じる</button></h4><div class="lbl">つながっている人：'+peers.length+'人 ／ 1端末1国（端末IDで管理）</div>';
-  if(ns.m==="home")h+='<div class="row"><button class="pri" data-n="h">招待コードを作る</button><button data-n="j">参加する</button></div>';
+  if(ns.m==="home"){
+    if(rt)h+='<div class="lbl">ルーム：<b style="font-size:18px;letter-spacing:.15em">'+rt.code+'</b>（'+(rt.host?"ホスト":"参加中")+'）<br>このコードを友達に伝えると入れます</div><div class="row"><button data-n="rcp">コードをコピー</button><button class="danger" data-n="rl">退室</button></div>';
+    else h+='<div class="lbl"><b>遠くの友達と遊ぶ（Supabase）</b></div><div class="row"><button class="pri" data-n="rh">ルームを作る</button><button data-n="rj">ルームに入る</button></div><div class="row"><button data-n="rcfg">Supabase設定</button></div><div class="lbl">近くの人と直接つなぐ（コード交換）</div><div class="row"><button data-n="h">招待コードを作る</button><button data-n="j">参加する</button></div>'}
+  else if(ns.m==="rj")h+='<div class="lbl">ホストから聞いたルームコードを入力</div><input id="rc" maxlength="8" autocapitalize="characters" autocomplete="off" placeholder="例：K7M2QX"><div class="row" style="margin-top:6px"><button class="pri" data-n="rjgo">入る</button><button data-n="b">戻る</button></div>';
+  else if(ns.m==="cfg"){var sc=sbCfg();h+='<div class="lbl">SupabaseのProject URLとanon(publishable) keyを入力（この端末にだけ保存）</div><input id="su" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(sc.url)+'"><input id="sk" autocomplete="off" placeholder="anon public key" style="margin-top:6px" value="'+esc(sc.key)+'"><div class="row" style="margin-top:6px"><button class="pri" data-n="rsave">保存</button><button data-n="b">戻る</button></div>'}
   else if(ns.m==="hw")h+='<div class="lbl">1. このコードを友達に送る</div><textarea readonly id="nc">'+ns.code+'</textarea><button data-n="cp">コピー</button><div class="lbl">2. 友達から届いた返信コードを貼る</div><textarea id="na"></textarea><button class="pri" data-n="ha">接続</button><button data-n="b">戻る</button>';
   else if(ns.m==="jw")h+='<div class="lbl">ホストから届いたコードを貼る</div><textarea id="na"></textarea><button class="pri" data-n="ja">返信コードを作る</button><button data-n="b">戻る</button>';
   else if(ns.m==="jc")h+='<div class="lbl">この返信コードをホストに送る（ホストが貼ると接続）</div><textarea readonly id="nc">'+ns.code+'</textarea><button data-n="cp">コピー</button><button data-n="b">戻る</button>';
   else h+='<div class="lbl">'+ns.m+'</div>';
   NP.innerHTML=h}
+/* ===== Supabase Realtime：遠くの人とオンライン。ルームコードで入り、ホストが計算して全員に配る（今までのP2Pと同じ構造） ===== */
+var rt=null;
+function sbCfg(){var c=window.SB_CONFIG||{},u=c.url||"",k=c.key||"";if(!u||!k){try{var s=JSON.parse(localStorage.getItem("mapwars_sb")||"{}");u=u||s.url||"";k=k||s.key||""}catch(e){}}return{url:String(u).trim(),key:String(k).trim()}}
+function rtCode(){var a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",s="";for(var i=0;i<6;i++)s+=a[Math.random()*a.length|0];return s}
+function rtPeer(id){for(var i=0;i<peers.length;i++)if(peers[i].sb&&peers[i].id===id)return peers[i];var p={id:id,sb:1,readyState:"open",send:function(){}};peers.push(p);return p}
+function rtDrop(id){for(var i=peers.length-1;i>=0;i--)if(peers[i].sb&&peers[i].id===id)peers.splice(i,1)}
+function rtSend(s,to,x){if(!rt||!rt.ch)return;try{rt.ch.send({type:"broadcast",event:"m",payload:{f:myUid,h:isHost?1:0,to:to||null,x:x||null,d:s}})}catch(e){}}
+function rtLeave(){if(!rt)return;var r=rt;rt=null;clearTimeout(r.tm);try{r.ch.unsubscribe()}catch(e){}try{r.cl.removeChannel(r.ch)}catch(e){}for(var i=peers.length-1;i>=0;i--)if(peers[i].sb)peers.splice(i,1);isHost=true}
+function rtSeen(){if(!rt||rt.seen)return;rt.seen=true;clearTimeout(rt.tm);rtPeer("host");botClear();ns.m="home";netUI();say("ルーム「"+rt.code+"」に入りました");pushNow(true)}
+function rtOpen(code,host){
+  var c=sbCfg();if(!c.url||!c.key){ns.m="cfg";netUI();return}
+  if(!window.supabase||!window.supabase.createClient){say("Supabaseを読み込めません（ネット接続を確認してください）");return}
+  rtLeave();code=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");if(code.length<4){say("ルームコードを入力してください");return}
+  var cl=window.supabase.createClient(c.url,c.key,{realtime:{params:{eventsPerSecond:30}}});
+  var ch=cl.channel("mapwars-"+code,{config:{broadcast:{self:false,ack:false},presence:{key:myUid}}});
+  rt={cl:cl,ch:ch,code:code,host:host,tm:0,seen:false};isHost=host;
+  ch.on("broadcast",{event:"m"},function(e){var p=e.payload,m;if(!p||!rt)return;
+    if(isHost){if(p.h||p.f===myUid||(p.to&&p.to!==myUid))return;var pr=rtPeer(p.f);try{m=JSON.parse(p.d)}catch(x){return}
+      if(m.t==="hi"){netUI();rtSend(JSON.stringify({t:"all",w:world}),p.f);return}
+      onNet(m,pr)}
+    else{if(!p.h||(p.to&&p.to!==myUid)||p.x===myUid)return;try{m=JSON.parse(p.d)}catch(x){return}rtSeen();onNet(m,null)}});
+  ch.on("presence",{event:"join"},function(e){if(!rt)return;var L=e.newPresences||[];
+    if(isHost){if(e.key!==myUid&&L.some(function(q){return q.role==="guest"})){rtPeer(e.key);say("友達が入室しました");netUI();rtSend(JSON.stringify({t:"all",w:world}),e.key)}}
+    else if(e.key!==myUid&&L.some(function(q){return q.role==="host"}))rtSeen()});
+  ch.on("presence",{event:"leave"},function(e){if(!rt)return;var L=e.leftPresences||[];
+    if(isHost){if(e.key!==myUid){rtDrop(e.key);say("友達が退室しました");netUI()}}
+    else if(L.some(function(q){return q.role==="host"})){say("ホストが退室したのでルームを閉じます");rtLeave();ns.m="home";netUI()}});
+  ch.subscribe(function(st){if(!rt||rt.ch!==ch)return;
+    if(st==="SUBSCRIBED"){ch.track({role:host?"host":"guest"});
+      if(host){ns.m="home";netUI();say("ルームを作りました。コード："+code)}
+      else{ns.m="接続中…";netUI();rtSend(JSON.stringify({t:"hi"}));rt.tm=setTimeout(function(){if(rt&&!rt.seen){say("ルーム「"+code+"」が見つかりません。コードを確認してください");rtLeave();ns.m="home";netUI()}},9000)}}
+    else if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"){say("Supabaseに接続できません（URL・キー・回線を確認）");rtLeave();ns.m="home";netUI()}})}
 function bindNet(){
   $("netb").onclick=function(){NP.classList.toggle("show");if(NP.classList.contains("show")){ns.m="home";netUI()}};
   NP.addEventListener("click",async function(e){var t=e.target;if(t.id==="nx"){NP.classList.remove("show");return}var n=t.getAttribute&&t.getAttribute("data-n");if(!n)return;
     try{
       if(n==="b"){ns.m="home";netUI()}
+      else if(n==="rh"){var c0=sbCfg();if(!c0.url||!c0.key){ns.m="cfg";netUI();return}rtOpen(rtCode(),true)}
+      else if(n==="rj"){var c1=sbCfg();if(!c1.url||!c1.key){ns.m="cfg";netUI();return}ns.m="rj";netUI()}
+      else if(n==="rjgo"){rtOpen($("rc").value,false)}
+      else if(n==="rcfg"){ns.m="cfg";netUI()}
+      else if(n==="rsave"){var uu=$("su").value.trim(),kk=$("sk").value.trim();if(!/^https:\/\/.+/.test(uu)||kk.length<20){say("URLとキーを正しく入力してください");return}try{localStorage.setItem("mapwars_sb",JSON.stringify({url:uu,key:kk}))}catch(x){}ns.m="home";netUI();say("保存しました。「ルームを作る」か「ルームに入る」を押してください")}
+      else if(n==="rl"){rtLeave();ns.m="home";netUI();say("退室しました")}
+      else if(n==="rcp"){if(rt){try{await navigator.clipboard.writeText(rt.code)}catch(x){}say("コードをコピーしました："+rt.code)}}
       else if(n==="h"){ns.m="コード作成中…（数秒）";netUI();isHost=true;var pc=hostPc=mkPc(),dc=pc.createDataChannel("g");wire(dc);await pc.setLocalDescription(await pc.createOffer());await gathered(pc);ns.code=enc(pc.localDescription);ns.m="hw";netUI()}
       else if(n==="ha"){var c=$("na").value;if(!c.trim()){say("返信コードを貼ってください");return}if(!hostPc||hostPc.signalingState!=="have-local-offer"){say("先に「招待コードを作る」からやり直してください");return}await hostPc.setRemoteDescription(dec(c));ns.m="接続中…";netUI()}
       else if(n==="j"){ns.m="jw";netUI()}
