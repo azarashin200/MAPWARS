@@ -117,6 +117,8 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 #res .tp{font-size:12px;opacity:.7;margin-top:18px;letter-spacing:.1em}
 #trc{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:45;display:none;flex-direction:column;gap:6px;align-items:stretch;width:min(360px,92%);padding:10px;box-sizing:border-box;border-radius:12px;background:var(--panel);color:var(--text);border:1px solid var(--line);box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:13px}
 #trc.show{display:flex}
+#top #trc{position:static;transform:none;top:auto;left:auto;display:none;flex-direction:row;align-items:center;gap:8px;width:auto;padding:0;margin:0;border:0;background:none;box-shadow:none;border-radius:0;font-size:12px;order:-1;flex:0 0 auto;white-space:nowrap}
+#top #trc.show{display:flex}#top #trc .row{display:flex;gap:6px}#top #trc .row button{flex:none}
 #trc .row{display:flex;gap:8px}#trc .row button{flex:1}
 #rsn{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px;box-sizing:border-box}
 #rsn.show{display:flex}
@@ -527,7 +529,7 @@ function lvB(o){return 1+.04*((o.civ||1)-1)+.04*((o.edu||1)-1)}
 function dvs(o){if(!o.dvs)o.dvs=[{k:0,s:0,x:false,e:0,v:2}];var D=o.dvs;for(var i=0;i<D.length;i++){var d=D[i];if(d.v!==2){if(d.k>=1)d.k=3;d.v=2}}return D}
 function dvAlive(o,i){var d=dvs(o)[i];return!!d&&!d.x}
 function nAlive(o){var n=0;dvs(o).forEach(function(d){if(!d.x)n++});return n}
-function dvCap(o){return Math.max(1,Math.min(40,Math.floor(o.pop/12)))}
+function dvCap(o){return Math.max(1,Math.min(40,Math.floor(o.pop/24)))}
 var SK=["nm","ds","cr","bb"],DVC={mk:30,gk:[0,20,30,40],sp:[0,30,60,100],rv:30};
 /* 地上兵科の進化：歩兵→砲兵→装甲車→戦車（h=耐久倍率 d=火力倍率 s=速度倍率 r=射程） */
 var GK=[{n:"歩兵",h:1,d:1,s:1,r:16},{n:"砲兵",h:.9,d:1.5,s:.85,r:28},{n:"装甲車",h:1.6,d:1.4,s:1.5,r:17},{n:"戦車",h:2.2,d:1.8,s:1.4,r:19}];
@@ -942,10 +944,11 @@ function doSurrender(){var w=myWar();if(!w||w.b!==myObj.id)return;if(Date.now()-
 function trcUpd(){var e=$("trc"),w=myWar(),now=Date.now(),h="",sg;
   if(myProp&&(!w||now-myProp.t>30000))myProp=null;
   if(incoming&&(!w||now-incoming.t>30000)){if(w)replyCease(false);else incoming=null}
-  if(w&&incoming){var A=uObj(incoming.a);h='<div><b>'+nmOf(A)+'</b>から停戦の提案が届いています（領土・支配関係は元のまま）</div><div class="row"><button data-c="ok">承認</button><button data-c="ng" class="danger">否認</button></div>'}
+  if(w&&incoming){var A=uObj(incoming.a);h='<span title="領土・支配関係は元のまま"><b>'+nmOf(A)+'</b>から停戦の提案</span><div class="row"><button data-c="ok">承認</button><button data-c="ng" class="danger">否認</button></div>'}
   else if(w&&w.a===myObj.id)h='<div class="row"><button data-c="cp"'+(myProp?' disabled':'')+'>'+(myProp?'停戦を提案中…':'停戦提案')+'</button></div>';
   else if(w&&w.b===myObj.id){var AB=byId(w.a);h='<div class="row">'+(AB&&AB.bot?'<button data-c="cp"'+(myProp?' disabled':'')+'>'+(myProp?'停戦を提案中…':'停戦提案')+'</button>':'')+'<button data-c="sr" class="danger">降伏</button></div>'}
   sg=h;if(sg===trcSig)return;trcSig=sg;e.innerHTML=h;e.classList.toggle("show",!!h)}
+$("top").appendChild($("trc"));
 $("trc").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-c]");if(!b)return;var c=b.getAttribute("data-c");
   if(c==="cp")proposeCease();else if(c==="sr")doSurrender();else if(c==="ok")replyCease(true);else if(c==="ng")replyCease(false);trcUpd()});
 setInterval(function(){try{trcUpd()}catch(x){}},300);
@@ -1515,6 +1518,11 @@ function drawPeople(){
       if(q.s&&dep&&dep[q.d])return;/* 出撃中の兵は師団として描く */
       var s=w2s([q.x,q.y]);if(s.x<-20||s.y<-20||s.x>cw+20||s.y>chh+20)return;
       L.push([q,s,col])})});
+  if(LITE){/* 軽量モード：国内の人は国色の丸（兵士は濃い色）。同色はまとめて1回で塗る */
+    var G={},gk,gi,g,r=1.6+ps*1.1;
+    L.forEach(function(e){var k=(e[0].s?"s":"c")+e[2],g2=G[k]||(G[k]=[e[0].s?shade(e[2],.45):e[2],[]]);g2[1].push(e[1].x,e[1].y)});
+    for(gk in G){g=G[gk];ctx.fillStyle=g[0];ctx.strokeStyle=gk.charAt(0)==="s"?"#fff":"rgba(20,26,36,.85)";ctx.lineWidth=1.3;ctx.beginPath();for(gi=0;gi<g[1].length;gi+=2){ctx.moveTo(g[1][gi]+r,g[1][gi+1]);ctx.arc(g[1][gi],g[1][gi+1],r,0,7)}ctx.fill();ctx.stroke()}
+    return}
   L.sort(function(a,b){return a[1].y-b[1].y});
   ctx.save();ctx.imageSmoothingEnabled=false;
   L.forEach(function(e){var q=e[0],s=e[1],col=e[2],v=PV.get(q);
@@ -1544,8 +1552,9 @@ function drawWar(){wars.forEach(function(w){
     ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x-9*Math.cos(a-.4),e.y-9*Math.sin(a-.4));ctx.lineTo(e.x-9*Math.cos(a+.4),e.y-9*Math.sin(a+.4));ctx.closePath();ctx.fillStyle=col;ctx.fill()});
   w.U.forEach(function(u){if(u.dead)return;var s=w2s([u.x,u.y]);if(s.x<-160||s.x>cw+160||s.y<-160||s.y>chh+160)return;var c=cl(u),dk=shade(c,.4);ctx.lineWidth=2;ctx.strokeStyle=dk;ctx.fillStyle=c;
     if(usel&&usel.u===u){ctx.beginPath();ctx.arc(s.x,s.y,19,0,7);ctx.strokeStyle=ACC;ctx.lineWidth=3;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=2;ctx.strokeStyle=dk}
-    if(u.hit>0){ctx.beginPath();ctx.arc(s.x,s.y,9+(.3-u.hit)*50,0,7);ctx.strokeStyle="rgba(229,72,77,"+u.hit*3+")";ctx.stroke();ctx.strokeStyle=dk}
-    if(u.m==="sea"){drawShip(s,u)}
+    if(u.hit>0&&!LITE){ctx.beginPath();ctx.arc(s.x,s.y,9+(.3-u.hit)*50,0,7);ctx.strokeStyle="rgba(229,72,77,"+u.hit*3+")";ctx.stroke();ctx.strokeStyle=dk}
+    if(LITE){liteU(s,u,c,dk)}
+    else if(u.m==="sea"){drawShip(s,u)}
     else if((u.gk|0)>=1){var tt=u.eng||u.tg,fl=false,T2=(typeof lastT==="number"&&lastT?lastT:0);if(tt){var te=w2s([tt.x,tt.y]);fl=te.x<s.x}
       if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
       var mv2=u._mv!=null&&T2-u._mv<260,ps2=vps(),kd=u.gk===1?"art":u.gk===2?"apc":"tnk",fr=mv2?((T2/160|0)%2):0;
@@ -1560,6 +1569,12 @@ function drawWar(){wars.forEach(function(w){
     ctx.fillStyle="rgba(0,0,0,.35)";ctx.fillRect(s.x-11,s.y+13,22,3);ctx.fillStyle="#30a46c";ctx.fillRect(s.x-11,s.y+13,22*Math.max(0,u.hp/u.maxhp),3);
     ctx.font="700 10px -apple-system,'Hiragino Sans',sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";var tx=u.name+(u.m!=="sea"&&(u.gk|0)>0?"（"+GK[u.gk|0].n+"）":"")+(u.m==="build"?" 造船中":"")+(u.m==="sea"&&u.sh?"（"+SHIP[u.sh].n+"）":"")+(u.ord?" [命令]":"");
     var ny=s.y-15;if(u.m==="sea"||(u.gk|0)>=1)ny=Math.min(ny,s.y+vbot(u)-vsz(u)[1]*vps()-4);ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";otx(tx,s.x,ny,3,"rgba(255,255,255,.85)","#26303d");ctx.fillStyle="#26303d"})})}
+/* 軽量モード：師団・戦車・船はアニメなしの静止マーカーで表示 */
+function liteU(s,u,c,dk){var X=s.x,Y=s.y;ctx.lineWidth=2;ctx.strokeStyle=dk;ctx.fillStyle=c;ctx.beginPath();
+  if(u.m==="sea"){ctx.moveTo(X-11,Y-1);ctx.lineTo(X+11,Y-1);ctx.lineTo(X+6,Y+6);ctx.lineTo(X-6,Y+6);ctx.closePath()}
+  else if((u.gk|0)>=1){ctx.rect(X-8,Y-5,16,10)}
+  else{ctx.arc(X,Y,6,0,7)}
+  ctx.fill();ctx.stroke()}
 function drawShip(s,u){var T2=(typeof lastT==="number"&&lastT?lastT:0),k=u.sh||"nm",ps2=vps(),tt=u.eng||u.tg,fl=false,c=ctx.fillStyle,kk="s_"+k,sz=vsz(u);
   if(tt){var te=w2s([tt.x,tt.y]);fl=te.x<s.x}
   if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
