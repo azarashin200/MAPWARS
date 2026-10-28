@@ -85,6 +85,7 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 .wr{padding:3px 0;border-bottom:1px solid var(--line)}.wr i{font-style:normal;color:var(--sub);margin-right:6px;font-size:10.5px}
 .wr.sea{color:#3e7bfa}.wr.land{color:#e5484d}.wr.win{font-weight:800}
 #net{position:absolute;top:54px;right:10px;width:min(340px,86%);padding:10px;display:none;z-index:3;touch-action:pan-y;-webkit-user-select:text;user-select:text;max-height:70vh;overflow:auto}#net.show{display:block}#net h4{margin:0 0 6px;font-size:13px;display:flex;align-items:center;justify-content:space-between}#net textarea{height:72px;font-size:10px;word-break:break-all}#net button{margin:2px 2px 2px 0;border-color:var(--line)}
+#cfgp{position:absolute;top:54px;right:10px;width:min(340px,86%);padding:10px;display:none;z-index:3;touch-action:pan-y;max-height:72vh;overflow:auto}#cfgp.show{display:block}#cfgp h4{margin:0 0 6px;font-size:13px;display:flex;align-items:center;justify-content:space-between}#cfgp h4 button{padding:3px 8px;font-size:11px;border-color:var(--line)}#cfgp .cr{display:grid;grid-template-columns:1fr auto;gap:0 8px;align-items:center;margin:2px 0 4px;font-size:12px}#cfgp .cr b{color:var(--text);font-variant-numeric:tabular-nums}#cfgp .cr input{grid-column:1/3}#cfgp .cr.ch span{color:var(--accent);font-weight:700}#cfgp .cg{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}#cfgp .row button{margin:4px 4px 0 0;border-color:var(--line)}
 #mine{position:absolute;left:10px;right:10px;bottom:12px;padding:6px 8px;display:none;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;z-index:2;-webkit-user-select:none;user-select:none;scrollbar-width:none}
 #mine::-webkit-scrollbar{display:none}
 #mine.show{display:flex}
@@ -305,7 +306,7 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 <div id="stage">
   <canvas id="cv"></canvas>
   <div id="scrim"></div>
-  <div id="top" class="glass"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.5l8 4.6v9.8l-8 4.6-8-4.6V7.1z"/><path d="M8 9l8 6M16 9l-8 6"/></svg><span>MAPWARS</span></div><div id="who">未接続</div><div id="more" class="glass"><button id="fwar" style="display:none">強制戦争</button><button id="fbt" style="display:none">強制裏切り</button><button id="netb">接続</button><button id="bgb">背景</button><button id="home">中央</button></div><button id="dvb">師団</button><button id="wlb">戦況</button><button id="spd">速度 ×1</button><button id="moreb" aria-label="メニュー"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div><div id="bgp" class="glass"></div><div id="wlp" class="glass"></div><div id="net" class="glass"></div><div id="dvp" class="glass"></div><div id="log"></div>
+  <div id="top" class="glass"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.5l8 4.6v9.8l-8 4.6-8-4.6V7.1z"/><path d="M8 9l8 6M16 9l-8 6"/></svg><span>MAPWARS</span></div><div id="who">未接続</div><div id="more" class="glass"><button id="fwar" style="display:none">強制戦争</button><button id="fbt" style="display:none">強制裏切り</button><button id="cfgb">設定</button><button id="netb">接続</button><button id="bgb">背景</button><button id="home">中央</button></div><button id="dvb">師団</button><button id="wlb">戦況</button><button id="spd">速度 ×1</button><button id="moreb" aria-label="メニュー"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div><div id="bgp" class="glass"></div><div id="wlp" class="glass"></div><div id="net" class="glass"></div><div id="cfgp" class="glass"></div><div id="dvp" class="glass"></div><div id="log"></div>
   <div id="mine" class="glass"></div>
   <div id="mm" class="glass" title="タップでその場所へ移動"><canvas id="mmc"></canvas></div>
   <div id="sheet" class="glass"></div>
@@ -333,10 +334,37 @@ window.SB_CONFIG={url:"https://xmopbdwajsklhbsivkgz.supabase.co",key:"sb_publish
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
+/* ===== ゲーム設定：すべて「原作の値に対する倍率」（×1＝原作）。ホストの設定が全員に反映される ===== */
+var CFG_DEF=[
+{g:"国・人口"},
+{k:"pop",n:"人口の上限",d:1.75,a:.25,b:5,s:.05},
+{k:"grow",n:"人口の増える速さ",d:1,a:.1,b:5,s:.1},
+{k:"pw",n:"国力の回復速さ",d:1,a:.1,b:5,s:.1},
+{g:"建築"},
+{k:"build",n:"建築・改築の速さ",d:1,a:.2,b:5,s:.1},
+{k:"cost",n:"建築・改築の費用",d:1,a:.1,b:2,s:.05},
+{g:"軍隊"},
+{k:"dvc",n:"師団の創設・進化の費用",d:1,a:.1,b:2,s:.05},
+{k:"dvn",n:"師団の最大数（人口あたり）",d:1,a:.25,b:3,s:.05},
+{k:"spd",n:"師団の移動速度",d:1,a:.2,b:4,s:.05},
+{k:"atk",n:"全体の攻撃力（要塞も含む）",d:1,a:.1,b:5,s:.05},
+{k:"dur",n:"師団の耐久力",d:1,a:.1,b:5,s:.05},
+{k:"rng",n:"射程（師団・要塞）",d:1,a:.3,b:3,s:.05},
+{g:"要塞"},
+{k:"fatk",n:"要塞の攻撃力",d:1,a:0,b:5,s:.05},
+{k:"fhp",n:"要塞のHP",d:.5,a:.1,b:5,s:.05}
+];
+var CFG={};
+function cfgSet(c){CFG_DEF.forEach(function(x){if(!x.k||!c||typeof c[x.k]!=="number"||!isFinite(c[x.k]))return;var v=Math.round(Math.round(c[x.k]/x.s)*x.s*1000)/1000;CFG[x.k]=Math.max(x.a,Math.min(x.b,v))})}
+function cfgDefaults(one){CFG_DEF.forEach(function(x){if(x.k)CFG[x.k]=one?1:x.d})}
+cfgDefaults(false);try{cfgSet(JSON.parse(localStorage.getItem("mapwars_cfg")||"null"))}catch(e){}
+var DVC0=null;
+function cfgDvc(){if(!DVC0||typeof DVC==="undefined"||!DVC)return;var m=CFG.dvc,f=function(v){return v?Math.max(1,Math.round(v*m)):0};DVC.mk=f(DVC0.mk);DVC.rv=f(DVC0.rv);DVC.gk=DVC0.gk.map(f);DVC.sp=DVC0.sp.map(f)}
+function cfgCost(v){return Math.max(1,Math.round(v*CFG.cost))}
 var online=true,ready=true,myUid="",myNid=0,myObj=null,lastJ="",pushT=0,peers=[],isHost=true,world={};/* 再読み込みで全てリセット：IDも国も毎回新しく、端末には保存しない */myUid="u"+Math.random().toString(36).slice(2)+Date.now().toString(36);myNid=hid(myUid);try{localStorage.removeItem("mapwars_uid");localStorage.removeItem("mapwars_world")}catch(e){}
 function hid(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return(h>>>0)%2000000000+1000}
 function canDraw(){return online&&ready&&!(myObj&&objs.indexOf(myObj)>=0)}
-function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[],dvs:dvs(o),bot:o.bot}}
+function snapOf(o){return{pts:o.pts,name:o.name,tbl:o.tbl,note:o.note,color:o.color,pop:Math.round(o.pop*100)/100,pw:Math.round(o.pw||0),civ:o.civ,mil:o.mil,edu:o.edu,auto:o.auto,houses:o.houses||[],fac:o.fac||[],dvs:dvs(o),vdp:o.vdp||{},bot:o.bot}}
 function pushNow(force){var o=myObj;if(!o||!o.founded)return;var j=JSON.stringify(snapOf(o));if(!force&&j===lastJ)return;lastJ=j;world[myUid]=j;saveWorld();bc({t:"s",u:myUid,j:j})}
 var cv=$("cv"),ctx=cv.getContext("2d"),sheet=$("sheet");
 var objs=[],cur=[],sel=null,hsel=null,usel=null,ordMode=false,editing=false,tool="select",shp=null,bg="#2f6fb5",defColor="#a8aeb7",nid=1,fr={},wars=[],speed=1,lastT=0,saveT=0,liveT=0;
@@ -554,7 +582,7 @@ function allPop(r){var n=0;objs.forEach(function(o){if(o.founded&&root(o)===r)n+
 function say(m){var d=document.createElement("div");d.className="glass toast";d.textContent=m;var L=$("log");L.appendChild(d);while(L.children.length>4)L.removeChild(L.firstChild);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d)},7000)}
 function warP(f){return f<5?.7:f<25?.3:f<50?.1:0}
 function spawn(o){var b=bounds(o.pts),x,y,n=0;do{x=b[0]+Math.random()*(b[2]-b[0]);y=b[1]+Math.random()*(b[3]-b[1])}while(!pip([x,y],o.pts)&&++n<40);if(n>=40){var c=bbox(o.pts);x=c[0];y=c[1]}return{x:x,y:y,s:false,L:false,d:null,a:Math.random()*6.28,t:Math.random()*2,sp:8+Math.random()*10}}
-var DIV_SZ=30,SOLD_RATE=.4;/* 1師団の標準兵士数＝30人。兵士の総数は国民数×SOLD_RATE（40%）まで */
+var DIV_SZ=30,SOLD_RATE=.9;/* 1師団の標準兵士数＝30人。兵士の総数は国民数×SOLD_RATE（90%）まで */
 function sz(o){return DIV_SZ}
 /* 人口密度：表示人数・家の数はそのまま、人口の数値だけ DEN 倍（1人の点＝DEN人） */
 var DEN=4;function popN(x){return Math.floor(x*DEN)}
@@ -564,11 +592,12 @@ function lvB(o){return 1+.04*((o.civ||1)-1)+.04*((o.edu||1)-1)}
 function dvs(o){if(!o.dvs)o.dvs=[{k:0,s:0,x:false,e:0,v:2}];var D=o.dvs;for(var i=0;i<D.length;i++){var d=D[i];if(d.v!==2){if(d.k>=1)d.k=3;d.v=2}}return D}
 function dvAlive(o,i){var d=dvs(o)[i];return!!d&&!d.x}
 function nAlive(o){var n=0;dvs(o).forEach(function(d){if(!d.x)n++});return n}
-function dvCap(o){return Math.max(1,Math.min(40,Math.floor(Math.min(o.pop,300)*SOLD_RATE/DIV_SZ)))}/* 全師団が標準兵士数（30人）を確保できる数まで（人口75人ごとに1師団） */
-var SK=["nm","ds","cr","bb"],DVC={mk:30,gk:[0,20,30,40],sp:[0,30,60,100],rv:30};
+function dvCap(o){return Math.max(1,Math.min(40,Math.floor(Math.min(o.pop,300)*SOLD_RATE*CFG.dvn/DIV_SZ)))}/* 全師団が標準兵士数（30人）を確保できる数まで（人口75人ごとに1師団） */
+var SK=["nm","ds","cr","bb"],DVC={mk:30,gk:[0,20,30,40],sp:[0,30,60,100],rv:30};DVC0={mk:DVC.mk,gk:DVC.gk.slice(),sp:DVC.sp.slice(),rv:DVC.rv};cfgDvc();
 /* 地上兵科の進化：歩兵→砲兵→装甲車→戦車（h=耐久倍率 d=火力倍率 s=速度倍率 r=射程） */
-var GK=[{n:"歩兵",h:1,d:1,s:1,r:16},{n:"砲兵",h:.9,d:1.5,s:.85,r:28},{n:"装甲車",h:1.6,d:1.4,s:1.5,r:17},{n:"戦車",h:2.2,d:1.8,s:1.4,r:19}];
-function gkOf(o,i){var d=dvs(o)[i];return d?Math.min(3,Math.max(0,d.k|0)):0}
+var GK=[{n:"歩兵",h:1,d:1,s:1,r:16},{n:"砲兵",h:.9,d:1.5,s:.85,r:28},{n:"装甲車",h:1.6,d:1.4,s:1.5,r:17},{n:"戦車",h:2.2,d:1.8,s:1.4,r:19},{n:"重戦車",h:4.4,d:3.6,s:1.4,r:13}];/* 重戦車：装甲車→戦車の強化時に10%で誕生。戦車の2倍の攻撃力と耐久力、射程は短い */
+function dgk(d){var k=Math.min(3,Math.max(0,d.k|0));return k>=3&&d.hv?4:k}
+function gkOf(o,i){var d=dvs(o)[i];return d?dgk(d):0}
 function shipOf(o,i){var d=dvs(o)[i];return SK[d?d.s:0]||"nm"}
 function isTank(o,i){return gkOf(o,i)===3}
 function nDiv(o){return dvs(o).length}
@@ -609,7 +638,7 @@ function sim(dt,rdt){
   var C=objs.filter(function(o){return o.founded});
   C.forEach(function(o){
     if(online&&!o.mine&&!o.botH){syncPeople(o,dt);return}if(o.wipe){if(hasIdle(o))o.wipe=false;else return}
-    houseSim(o,dt);var cap=popCap(o);o.pop=Math.max(2,o.pop+.06*GROW_SPD*(o.dep?3:1)*(1+.1*(o.edu-1))*o.pop*(1-o.pop/cap)*dt);o.pw=Math.min(200,(o.pw||0)+pwRate(o)*dt);
+    houseSim(o,dt);var cap=popCap(o);o.pop=Math.max(2,o.pop+.06*GROW_SPD*CFG.grow*(o.dep?3:1)*(1+.1*(o.edu-1))*o.pop*(1-o.pop/cap)*dt);o.pw=Math.min(200,(o.pw||0)+pwRate(o)*dt);
     syncPeople(o,dt);
     
   });
@@ -633,18 +662,18 @@ function sim(dt,rdt){
 function areaCap(o){return Math.max(6,area(o.pts)/800)*(1+.15*((o.civ||1)-1))}
 function houseCap(o){return Math.min(Math.max(2,Math.min(80,Math.ceil((areaCap(o)-2)/5))),3+3*(o.civ||1))}
 /* 家の建築・改築はプレイヤー操作（国力を消費）。文明レベルが家の数と家のレベルの上限を決める */
-function bCost(o){return 20+4*(o.houses||[]).length}
-function rCost(h){return 15+10*Math.floor(h.lv)}
+function bCost(o){return cfgCost(20+4*(o.houses||[]).length)}
+function rCost(h){return cfgCost(15+10*Math.floor(h.lv))}
 function canBuild(o){return(o.houses||[]).length<houseCap(o)}
 function canReno(o,h){if(!h||h.b<1||h.ds)return false;if(h.t==="c"||h.t==="fo")return h.lv<castleMax(o);return h.lv<Math.min(10,o.civ||1)}
-function popCap(o){return Math.min(areaCap(o),2+5*doneH(o))}
+function popCap(o){return CFG.pop*Math.min(areaCap(o),2+5*doneH(o))}
 function doneH(o){return(o.houses||[]).filter(function(h){return h.b>=1}).length}
-function houseTxt(o){var H=o.houses||[],b=H.length-doneH(o),av=H.length?H.reduce(function(a,h){return a+h.lv},0)/H.length:1;return'家 <b>'+doneH(o)+'</b>軒'+(b?'（建築中 '+b+'）':'')+' / 上限 '+houseCap(o)+' ・ 平均Lv '+av.toFixed(1)+' ・ 人口上限 '+Math.floor(areaCap(o))}
+function houseTxt(o){var H=o.houses||[],b=H.length-doneH(o),av=H.length?H.reduce(function(a,h){return a+h.lv},0)/H.length:1;return'家 <b>'+doneH(o)+'</b>軒'+(b?'（建築中 '+b+'）':'')+' / 上限 '+houseCap(o)+' ・ 平均Lv '+av.toFixed(1)+' ・ 人口上限 '+Math.floor(areaCap(o)*CFG.pop)}
 function addHouse(o,b){var bd=bounds(o.pts),best=null,bs=-1,i;
   for(i=0;i<25;i++){var x=bd[0]+Math.random()*(bd[2]-bd[0]),y=bd[1]+Math.random()*(bd[3]-bd[1]);if(!pip([x,y],o.pts))continue;var m=1e9;o.houses.forEach(function(h){m=Math.min(m,Math.hypot(h.x-x,h.y-y))});if(m>bs){bs=m;best=[x,y]}}
   if(!best)best=bbox(o.pts);o.houses.push({x:best[0],y:best[1],lv:1,b:b})}
 function houseSim(o,dt){var H=o.houses=o.houses||[];if(!H.length)addHouse(o,1);var e=1+.1*(o.edu-1);
-  H.forEach(function(h){if(h.b<1)h.b=Math.min(1,h.b+dt/15*e)});(o.fac=o.fac||[]).forEach(function(f){if(f.b<1){f.b=Math.min(1,f.b+(f.rb?dt/60:dt/15*e));if(f.b>=1&&f.rb){delete f.rb;f.hp=1}}else if(f.t==="fo"&&!f.ds&&f.hp<1&&!inWar(o))f.hp=Math.min(1,f.hp+dt/150)});
+  H.forEach(function(h){if(h.b<1)h.b=Math.min(1,h.b+dt/15*e*CFG.build)});(o.fac=o.fac||[]).forEach(function(f){if(f.b<1){f.b=Math.min(1,f.b+(f.rb?dt/60:dt/15*e)*CFG.build);if(f.b>=1&&f.rb){delete f.rb;f.hp=1}}});/* 要塞のHP自然回復は廃止 */
   if(o.auto){o.at=(o.at||0)-dt;if(o.at<=0){o.at=2;autoHouse(o)}}}
 /* ===== 農地・鉱山：国力の回復速度を上げる。数とレベルの上限は文明レベル依存 ===== */
 /* ===== 城：文明Lv3で1つ／Lv6で2つ／Lv9で3つまで。改築は Lv6 で城Lv2、Lv9 で城Lv3（さらに大きく） ===== */
@@ -654,15 +683,15 @@ function castleMax(o){var c=o.civ||1;return c>=9?3:c>=6?2:1}
 function castleB(o){var t=0;facs(o,"c").forEach(function(c){if(c.b>=1)t+=Math.floor(c.lv)});return .05*t}
 function homeB(u){if(u.m!=="land")return 1;var O=byId(u.o),L=landAt(u.x,u.y);if(!O||!L||root(L)!==root(O))return 1;return 1+castleB(O)}
 /* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分の15%（FORT_ATK）、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
-var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]},FORT_ATK=.15;/* 要塞の攻撃力倍率（現在の15%：従来の5%の3倍） */
+var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]},FORT_ATK=.0375;/* 要塞の攻撃力倍率（現在の3.75%：従来の15%の1/4） */
 function fortCap(o){return Math.ceil(castleCap(o)*1.5)}
 function fLv(f){return Math.max(1,Math.min(3,Math.floor(f.lv)))}
 function tkMul(o){return Math.max(4,10+5*((o.mil||1)-1))*(1+.35*((o.mil||1)-1))*lvB(o)}
-function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]*FORT_ATK}
-function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]}
-function fortR(f){return FORT.r[fLv(f)-1]}
+function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]*FORT_ATK*CFG.fatk*CFG.atk}
+function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]*CFG.fhp}
+function fortR(f){return FORT.r[fLv(f)-1]*CFG.rng}
 function fortOn(f){return!!f&&f.t==="fo"&&f.b>=1&&!f.ds&&(f.hp==null||f.hp>0)}
-function fortRe(f){return 50+40*fLv(f)}
+function fortRe(f){return cfgCost(50+40*fLv(f))}
 function inWar(o){var r=root(o).id;return wars.some(function(w){return w.a===r||w.b===r||(w.j&&w.j[r])})}
 var FDQ={},FA={},FP={};
 function fzKey(x,y){return r2(x)+","+r2(y)}
@@ -684,10 +713,10 @@ function renoAct(o){var hs=selObj(o);if(!hs)return;
 function fsz(h){return h.t==="c"?30+9*h.lv:h.t==="fo"?34+7*h.lv:h.t?18+3*h.lv:14+3.4*h.lv}
 var FT={c:{n:"城",e:"",cap:castleCap,base:60,step:40,ub:60,us:50,rate:0},f:{n:"農地",e:"",cap:function(o){return 2+(o.civ||1)},base:25,step:5,ub:20,us:12,rate:.3},m:{n:"鉱山",e:"",cap:function(o){return 1+(o.civ||1)},base:35,step:7,ub:30,us:15,rate:.5},fo:{n:"要塞",e:"",cap:fortCap,base:90,step:25,ub:80,us:50,rate:0}};
 function facs(o,t){return(o.fac||[]).filter(function(f){return f.t===t})}
-function fCost(o,t){return FT[t].base+FT[t].step*facs(o,t).length}
+function fCost(o,t){return cfgCost(FT[t].base+FT[t].step*facs(o,t).length)}
 function fCanBuild(o,t){return facs(o,t).length<FT[t].cap(o)}
-function pwRate(o){var r=0;(o.fac||[]).forEach(function(f){if(f.b>=1)r+=FT[f.t].rate*f.lv});return(2+r)*(1+.25*((o.edu||1)-1))*GROW_SPD*PW_SPD}
-function upCost(h){return h.t?FT[h.t].ub+FT[h.t].us*Math.floor(h.lv):rCost(h)}
+function pwRate(o){var r=0;(o.fac||[]).forEach(function(f){if(f.b>=1)r+=FT[f.t].rate*f.lv});return(2+r)*(1+.25*((o.edu||1)-1))*GROW_SPD*PW_SPD*CFG.pw}
+function upCost(h){return h.t?cfgCost(FT[h.t].ub+FT[h.t].us*Math.floor(h.lv)):rCost(h)}
 function selObj(o){return hsel&&((o.houses||[]).indexOf(hsel)>=0||(o.fac||[]).indexOf(hsel)>=0)?hsel:null}
 function selName(h){return h.t?FT[h.t].n:"家"}
 function facTxt(o){var a=facs(o,"f"),b=facs(o,"m");function av(L){return L.length?(L.reduce(function(x,h){return x+h.lv},0)/L.length).toFixed(1):"-"}
@@ -1467,7 +1496,7 @@ function landAt(x,y){var p=[x,y];for(var i=objs.length-1;i>=0;i--)if(pip(p,objs[
 function nearest(u,a){var b=null,bd=1e9;a.forEach(function(e){var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<bd){bd=d;b=e}});return b}
 function mkUnits(w,o,sd){assign(o,true);var nd=nDiv(o),dep={},P=o.people||[];
   for(var i=0;i<nd;i++){if(!dvAlive(o,i))continue;(function(i){var M=P.filter(function(q){return q.s&&q.d===i}),Lq=M.filter(function(q){return q.L})[0]||M[0]||spawn(o),men=M.length,str=Math.max(4,men)*(1+.35*(o.mil-1))*lvB(o);
-    pushU(w,o,i,{id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:men,str:str,gk:gkOf(o,i),tk:gkOf(o,i)===3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});dep[i]=true})(i)}
+    pushU(w,o,i,{id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:men,str:str,gk:gkOf(o,i),tk:gkOf(o,i)>=3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});dep[i]=true})(i)}
   o.dep=dep;o.wipe=false}
 var SHIP={nm:{n:"哨戒艇",h:1,d:1,s:1.5,r:30},ds:{n:"駆逐艦",h:1.5,d:1.3,s:1.9,r:32},cr:{n:"巡洋艦",h:2.6,d:2,s:1.6,r:38},bb:{n:"戦艦",h:4.5,d:3.2,s:1.2,r:46}};
 function fleetW(o){if(o.mil<3)return[["nm",1]];var e=Math.max(0,o.civ+o.mil-12),L=[["ds",Math.max(1,5-.4*e)]];if(o.mil>=6)L.push(["cr",3+.2*e]);if(o.mil>=9)L.push(["bb",2+.4*e]);return L}
@@ -1486,7 +1515,7 @@ function reinf(w,o,sd){if(!o||!o.dep)return;if(o.wipe){if(!hasIdle(o))return;o.w
       if(M.length){M[0].L=true;forced=true}}
     if(!forced&&!(M.length>=3||(M.length>0&&!pn)))continue;
     var Lq=M.filter(function(q){return q.L})[0]||M[0],str=Math.max(4,M.length)*(1+.35*(o.mil-1))*lvB(o);
-    pushU(w,o,i,{id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:M.length,str:str,gk:gkOf(o,i),tk:gkOf(o,i)===3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});
+    pushU(w,o,i,{id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:M.length,str:str,gk:gkOf(o,i),tk:gkOf(o,i)>=3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});
     o.dep[i]=true;wl(w,o.name+(i+1)+"が戦線に加わった","land")}}
 function startWar(w){var A=byId(w.a),B=byId(w.b),pa=bbox(A.pts),pb=bbox(B.pts);
   w.d0=Math.hypot(pa[0]-pb[0],pa[1]-pb[1]);w.sp=Math.max(8,Math.min(70,w.d0/50));[[A,w.a],[B,w.b]].forEach(function(p){members(p[0]).forEach(function(m){mkUnits(w,m,p[1])})});w.lost={};w.lost[w.a]=0;w.lost[w.b]=0;w.n0={};w.n0[w.a]=w.U.filter(function(u){return u.sd===w.a}).length;w.n0[w.b]=w.U.filter(function(u){return u.sd===w.b}).length;
@@ -1494,9 +1523,9 @@ function startWar(w){var A=byId(w.a),B=byId(w.b),pa=bbox(A.pts),pb=bbox(B.pts);
   function inf(o){var n=w.U.filter(function(u){return u.sd===o.id}).length,v=members(o).length-1;return o.name+(v?"＋属国"+v:"")+"("+n+"個師団・"+(o.civ>=3?"文明Lv"+o.civ+"=造船可・"+fleetTxt(o):"文明Lv"+o.civ+"=陸路のみ")+")"}
   wl(w,"開戦："+inf(A)+" vs "+inf(B),"win")}
 function dvSync(w,u,O){var d=O&&O.dvs&&O.dvs[u.i];if(!d||d.x)return;
-  var g=Math.min(3,d.k|0),cg=u.gk|0;if(g>cg){var fh=GK[g].h/GK[cg].h,fd=GK[g].d/GK[cg].d,r=Math.max(0,u.hp)/u.maxhp;u.gk=g;u.tk=g===3;u.maxhp*=fh;u.hp=r*u.maxhp;u.dps*=fd;if(u.mx0!=null){u.mx0*=fh;u.dp0*=fd}wl(w,u.name+"が"+GK[g].n+"に強化された","land")}
+  var g=dgk(d),cg=u.gk|0;if(g>cg){var fh=GK[g].h/GK[cg].h,fd=GK[g].d/GK[cg].d,r=Math.max(0,u.hp)/u.maxhp;u.gk=g;u.tk=g>=3;u.maxhp*=fh;u.hp=r*u.maxhp;u.dps*=fd;if(u.mx0!=null){u.mx0*=fh;u.dp0*=fd}wl(w,u.name+"が"+GK[g].n+"に強化された","land")}
   if(u.m==="sea"){var k=SK[d.s]||"nm";if(u.sh!==k){setShip(u,k);wl(w,u.name+"が"+SHIP[k].n+"に強化された","sea")}}}
-function dvKill(O,i){var d=dvs(O)[i];if(!d||d.x)return;d.x=true;delete d.dp;if(O.mine)pushT=Date.now()+300;else if(isHost&&peers.length&&O.uid)bc({t:"dk",u:O.uid,i:i,e:d.e||0})}
+function dvKill(O,i){var d=dvs(O)[i];if(!d||d.x)return;d.x=true;d.kt=Date.now();delete d.dp;if(O.ruler){var RR=root(O);if(RR&&RR.vdp&&RR.vdp[O.id+"_"+i]){delete RR.vdp[O.id+"_"+i];if(RR.mine)pushT=Date.now()+300}}if(O.mine)pushT=Date.now()+300;else if(isHost&&peers.length&&O.uid)bc({t:"dk",u:O.uid,i:i,e:d.e||0})}
 function pickIn(w,u,L){var b=null,bc=1e9,bd=1e9;L.forEach(function(e){var c=0;w.U.forEach(function(x){if(x!==u&&!x.dead&&x.sd===u.sd&&x.tg===e)c++});var d=Math.hypot(e.x-u.x,e.y-u.y);if(c<bc||(c===bc&&d<bd)){bc=c;bd=d;b=e}});return b}
 /* ===== 開戦の可否：陸続きでなく、どちらも造船できない（文明Lv3未満）なら戦争は断念 ===== */
 function psd(px,py,ax,ay,bx,by){var dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l)):0;return Math.hypot(px-ax-t*dx,py-ay-t*dy)}
@@ -1585,7 +1614,7 @@ function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();
   if(!s){if(vassalMe()){W.innerHTML='<div class="lbl"><b>師団命令</b> ／ 支配下の国は師団に命令できません。師団は宗主国（'+esc(root(myObj).name||"?")+'）が指揮します。</div>';dvSig="";return}W.innerHTML='<div class="lbl">戦争中ではありません。宣戦布告する（または宣戦布告される）と、この下に従来の「師団命令」（師団を選んで進軍先を命令）が出ます。</div>';dvSig="";return}
   var keys=s.L.map(ukey),E0=byId(s.sd===s.w.a?s.w.b:s.w.a),sig=keys.join(",")+"|"+s.L.map(function(u){return u.name}).join(",")+"|"+s.me.name+"|"+(E0?E0.name:"");Object.keys(dvSel).forEach(function(k){if(keys.indexOf(k)<0)delete dvSel[k]});
   if(force||sig!==dvSig||!p.querySelector(".dvl")){var old=p.querySelector(".dvl"),sc=old?old.scrollTop:0,E=byId(s.sd===s.w.a?s.w.b:s.w.a),nG=[0,0,0,0],rows="";
-    s.L.forEach(function(u){nG[u.gk|0]++;var k=ukey(u),O=byId(u.o);rows+='<div class="dvr" data-d="t" data-k="'+k+'"><span class="cb"></span><div class="dvc"><b>'+esc(u.name)+'</b> <span class="dvt" data-k="'+k+'">'+esc(dvComp(u))+'</span><div class="dvm dvo" data-k="'+k+'">命令: '+esc(ordTxt(u,s.w))+'</div></div><button data-d="g" data-k="'+k+'">表示</button></div>'});
+    s.L.forEach(function(u){nG[Math.min(3,u.gk|0)]++;var k=ukey(u),O=byId(u.o);rows+='<div class="dvr" data-d="t" data-k="'+k+'"><span class="cb"></span><div class="dvc"><b>'+esc(u.name)+'</b> <span class="dvt" data-k="'+k+'">'+esc(dvComp(u))+'</span><div class="dvm dvo" data-k="'+k+'">命令: '+esc(ordTxt(u,s.w))+'</div></div><button data-d="g" data-k="'+k+'">表示</button></div>'});
     W.innerHTML='<div class="lbl" style="margin-top:2px"><b>師団命令（戦争中）</b> ／ '+esc(s.me.name)+' vs '+esc(E?E.name:"?")+' ／ 自軍 '+s.L.length+'個師団（歩兵'+nG[0]+'・砲兵'+nG[1]+'・装甲車'+nG[2]+'・戦車'+nG[3]+'）<br>師団は命令するまで動きません。行をタップで選択 → 下のボタンで命令</div><div class="row"><button data-d="all">全部☑</button><button data-d="none">☑解除</button><span class="sp"></span><span class="lbl dvn"></span></div><div class="wb dvl">'+(rows||'<div class="lbl">動かせる師団がありません</div>')+'</div><div class="lbl">選んだ師団への命令</div><div class="ups"><button data-d="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-d="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-d="cty"><span class="n">属国を指定</span><span class="c">選んで占領</span></button><button data-d="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-d="ally"><span class="n">味方本土防衛</span><span class="c">陣営の本土を守る</span></button><button data-d="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-d="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-d="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
     var nl=p.querySelector(".dvl");if(nl)nl.scrollTop=sc;dvSig=sig}
   else s.L.forEach(function(u){var k=ukey(u),a=p.querySelector('.dvt[data-k="'+k+'"]'),b=p.querySelector('.dvo[data-k="'+k+'"]');if(a)a.textContent=dvComp(u);if(b)b.textContent="命令: "+ordTxt(u,s.w)});
@@ -1593,15 +1622,15 @@ function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();
 /* ===== 平時の師団配備：自国・同盟国・属国の本土、またはその周りの海域に任意で配備。開戦すると配備地点から出撃する ===== */
 var DEP_SEA=225,dpSel={},dpList=[],DPC={},dpMap=false;
 /* ===== マップ上の師団をタップして選択 → 「配備」ボタンで配備先をタップ ===== */
-function peaceUnitAt(p){if(!myObj||!myObj.founded)return null;var best=null,bd=18*18;peaceW().U.forEach(function(u){if(u.o!==myObj.id)return;var s=w2s([u.x,u.y]),dx=s.x-p.x,dy=s.y-p.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=u}});return best}
+function peaceUnitAt(p){if(!myObj||!myObj.founded)return null;var best=null,bd=18*18;peaceW().U.forEach(function(u){if(u.o!==myObj.id&&!(u.o!==myObj.id&&dpOwned(byId(u.o))))return;var s=w2s([u.x,u.y]),dx=s.x-p.x,dy=s.y-p.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=u}});return best}
 function hideDpb(){var c=$("cmd");if(c.getAttribute("data-dp")){c.removeAttribute("data-dp");c.className="glass";c.innerHTML=""}}
-function showDpb(){if(usel)return;var c=$("cmd"),ks=Object.keys(dpSel).map(Number).sort(function(a,b){return a-b}),n=ks.length;
+function showDpb(){if(usel)return;var c=$("cmd"),ks=Object.keys(dpSel),n=ks.length;
   if(ordMode==="deploy"){c.setAttribute("data-dp","1");c.className="glass show";c.innerHTML='<div class="sh"><h3>師団を配備</h3></div><div class="lbl">配備先を地図でタップしてください（'+dpList.length+'個師団／自国・同盟国・属国の本土、またはその周りの海域）</div><div class="ups"><button data-p="dpx"><span class="n">中止</span><span class="c">選択に戻る</span></button></div>';return}
   if(!n){hideDpb();return}
-  var o=myObj,nm=ks.map(function(i){return esc(o.name)+(i+1)}).join("・");
+  var nm=ks.map(function(k){var q=dpKeyOwner(k);return q?esc(q.o.name)+(q.i+1):""}).join("・");
   c.setAttribute("data-dp","1");c.className="glass show";
   c.innerHTML='<div class="sh"><h3>師団を配備</h3><button data-p="dpn">閉じる</button></div><div class="lbl">選択中 <b>'+n+'</b>個師団：'+nm+'<br>地図の師団をタップで追加／解除。「配備」を押してから配備先をタップします。</div><div class="ups"><button data-p="dpg"><span class="n">配備</span><span class="c">配備先を地図でタップ</span></button><button data-p="dpc"><span class="n">配備を解除</span><span class="c">元の位置へ</span></button><button data-p="dpn"><span class="n">選択解除</span><span class="c">すべて外す</span></button></div>'}
-function dpMapTap(u){usel=null;sel=null;hsel=null;editing=false;dpAct("ds",u.i);showSheet();showDpb();render()}
+function dpMapTap(u){usel=null;sel=null;hsel=null;editing=false;dpAct("ds",u.o+"_"+u.i);showSheet();showDpb();render()}
 $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-p]");if(!b||usel)return;var a=b.getAttribute("data-p");
   if(a==="dpg"){dpMap=true;dpAct("dpg");if(ordMode!=="deploy")dpMap=false;showDpb();return}
   if(a==="dpx"){ordMode=false;dpList=[];dpMap=false;showDpb();render();return}
@@ -1615,26 +1644,31 @@ function deployChk(o,x,y){var R=root(o),L=landAt(x,y);
   if((o.civ||1)<3)return{ok:0,why:"海に配備するには文明Lv3（造船）が必要です"};
   return{ok:1,sea:1}}
 /* 配備地点が今も有効なら返す（同盟が解消された等で無効なら null＝通常の位置から出撃）。毎フレーム呼ばれるので結果を1.5秒キャッシュ */
-function depStart(o,i){var d=dvs(o)[i];if(!d||!d.dp)return null;var k=o.id+"_"+i,n=Date.now(),c=DPC[k];
-  if(!c||c.dp!==d.dp||n-c.t>1500){var r=deployChk(o,d.dp.x,d.dp.y);c=DPC[k]={dp:d.dp,t:n,ok:!!(r.ok&&!!r.sea===!!d.dp.sea)}}
-  return c.ok?d.dp:null}
+/* 配備地点の取得：自国の師団は師団自身、占領した国（属国）の師団は宗主国の vdp に保存 */
+function dpGet(o,i){var d=dvs(o)[i];if(!d||d.x)return null;if(!o.ruler)return d.dp||null;var R=root(o);return R&&R.vdp&&R.vdp[o.id+"_"+i]||null}
+function dpPut(o,i,v){if(!o.ruler){var d=dvs(o)[i];if(d){if(v)d.dp=v;else delete d.dp}return}var R=root(o);if(!R)return;if(!R.vdp)R.vdp={};if(v)R.vdp[o.id+"_"+i]=v;else delete R.vdp[o.id+"_"+i]}
+function dpKeyOwner(k){var a=String(k).split("_"),O=byId(+a[0]);return O?{o:O,i:+a[1]}:null}
+function dpOwned(O){return!!(myObj&&O&&O.founded&&underOf(O,myObj))}
+function depStart(o,i){var dp=dpGet(o,i);if(!dp)return null;var k=o.id+"_"+i,n=Date.now(),c=DPC[k];
+  if(!c||c.dp!==dp||n-c.t>1500){var r=deployChk(o,dp.x,dp.y);c=DPC[k]={dp:dp,t:n,ok:!!(r.ok&&!!r.sea===!!dp.sea)}}
+  return c.ok?dp:null}
 function pushU(w,o,i,u){var dp=depStart(o,i);if(dp){u.x=dp.x;u.y=dp.y;u.hx=dp.x;u.hy=dp.y;if(dp.sea){u.m="sea";u.sw=false}}w.U.push(u);if(dp&&dp.sea)setShip(u,shipOf(o,i));return u}
 function dpAct(a,i){var o=myObj;if(!o||!o.founded){say("先に国を建ててください");return}
   if(vassalMe()){say("支配下の国は配備できません");return}
   if(mySide()){say("戦争中は配備を変更できません（開戦時に配備地点から出撃します）");return}
   var D=dvs(o);
-  if(a==="ds"){if(!D[i]||D[i].x)return;if(dpSel[i])delete dpSel[i];else dpSel[i]=1}
-  else if(a==="dpa"){D.forEach(function(d,k){if(!d.x)dpSel[k]=1})}
+  if(a==="ds"){var q=dpKeyOwner(i);if(!q||!dpOwned(q.o)||!dvAlive(q.o,q.i))return;if(dpSel[i])delete dpSel[i];else dpSel[i]=1}
+  else if(a==="dpa"){objs.forEach(function(O){if(dpOwned(O))dvs(O).forEach(function(d,k){if(!d.x)dpSel[O.id+"_"+k]=1})})}
   else if(a==="dpn"){dpSel={}}
-  else if(a==="dpc"){var n=0;Object.keys(dpSel).forEach(function(k){var d=D[+k];if(d&&d.dp){delete d.dp;n++}});dpSel={};say(n?n+"個師団の配備を解除した":"配備済みの師団が選ばれていません");dvPush()}
-  else if(a==="dpg"){var L=Object.keys(dpSel).map(Number).filter(function(k){return D[k]&&!D[k].x});if(!L.length){say("配備する師団を選んでください（行をタップで選択）");return}
+  else if(a==="dpc"){var n=0;Object.keys(dpSel).forEach(function(k){var q=dpKeyOwner(k);if(q&&dpOwned(q.o)&&(q.o.ruler?dpGet(q.o,q.i):(dvs(q.o)[q.i]||{}).dp)){dpPut(q.o,q.i,null);n++}});dpSel={};say(n?n+"個師団の配備を解除した":"配備済みの師団が選ばれていません");dvPush()}
+  else if(a==="dpg"){var L=Object.keys(dpSel).filter(function(k){var q=dpKeyOwner(k);return q&&dpOwned(q.o)&&dvAlive(q.o,q.i)});if(!L.length){say("配備する師団を選んでください（行をタップで選択）");return}
     dpList=L;ordMode="deploy";$("dvp").classList.remove("show");say("配備する場所をタップ（自国・同盟国・属国の本土、またはその周りの海域）／師団ボタンで中止");render();return}
   dvMgSig="";drawDv(true)}
 function deployTap(p){var o=myObj,w=s2w(p),x=w[0],y=w[1];if(!o||!o.founded){ordMode=false;return}
   var r=deployChk(o,x,y);if(!r.ok){say(r.why);return}
-  var D=dvs(o),n=0;dpList.forEach(function(i,k){var d=D[i];if(!d||d.x)return;var px=x,py=y;
+  var n=0;dpList.forEach(function(key,k){var q=dpKeyOwner(key);if(!q||!dpOwned(q.o)||!dvAlive(q.o,q.i))return;var px=x,py=y;
     if(k>0){var a=k*2.4,rr=5*Math.sqrt(k),tx=x+Math.cos(a)*rr,ty=y+Math.sin(a)*rr,c=deployChk(o,tx,ty);if(c.ok&&!!c.sea===!!r.sea){px=tx;py=ty}}
-    d.dp={x:px,y:py,sea:r.sea?1:0};n++});
+    dpPut(q.o,q.i,{x:px,y:py,sea:r.sea?1:0});n++});
   ordMode=false;dpSel={};dpList=[];dvPush();say(n+"個師団を"+(r.sea?"海域":"陸")+"に配備した。開戦すると配備地点から出撃します");
   if(dpMap){dpMap=false;hideDpb()}else $("dvp").classList.add("show");dvMgSig="";drawDv(true);render()}
 var dvMgSig="";
@@ -1643,24 +1677,26 @@ function dvAct(a,i){var o=myObj;if(!o||!o.founded){say("先に国を建ててく
   function pay(c){if(pw<c){say("国力が足りません（必要 "+c+"）");return false}o.pw-=c;return true}
   if(a==="mk"){if(D.length>=40){say("師団は最大40個までです（壊滅した師団は復活で再利用）");return}if(nAlive(o)>=dvCap(o)){say("人口が足りず、これ以上は維持できません（上限 "+dvCap(o)+"個師団）");return}if(!pay(DVC.mk))return;D.push({k:0,s:0,x:false,e:0,v:2});say(o.name+"が新しい師団を創設した（歩兵・哨戒艇）")}
   else if(!d)return;
-  else if(a==="rv"){if(!d.x)return;if(nAlive(o)>=dvCap(o)){say("人口が足りず、復活させられません（上限 "+dvCap(o)+"個師団）");return}if(!pay(DVC.rv))return;d.k=0;d.s=0;d.x=false;delete d.dp;d.e=(d.e||0)+1;say(o.name+(i+1)+"が1から復活した（歩兵・哨戒艇）")}
-  else if(a==="tk"){if(d.x||d.k>=3)return;var nk=(d.k|0)+1;if(!pay(DVC.gk[nk]))return;d.k=nk;say(o.name+(i+1)+"の"+GK[nk-1].n+"が"+GK[nk].n+"に進化した")}
+  else if(a==="rv"){if(!d.x)return;if(d.kt&&Date.now()-d.kt<20000){say("壊滅から20秒経つまで復活できません（あと"+Math.ceil((20000-(Date.now()-d.kt))/1000)+"秒）");return}if(nAlive(o)>=dvCap(o)){say("人口が足りず、復活させられません（上限 "+dvCap(o)+"個師団）");return}if(!pay(DVC.rv))return;d.k=0;d.s=0;d.x=false;delete d.kt;delete d.hv;delete d.dp;d.e=(d.e||0)+1;say(o.name+(i+1)+"が1から復活した（歩兵・哨戒艇）")}
+  else if(a==="tk"){if(d.x||d.k>=3)return;var nk=(d.k|0)+1;if(!pay(DVC.gk[nk]))return;d.k=nk;if(nk===3)d.hv=Math.random()<.1?1:0;else delete d.hv;say(o.name+(i+1)+"の"+GK[nk-1].n+"が"+GK[dgk(d)].n+"に進化した"+(d.hv?"！（10%の確率）":""))}
   else if(a==="sp"){if(d.x||d.s>=3)return;if(!pay(DVC.sp[d.s+1]))return;d.s++;say(o.name+(i+1)+"の船が"+SHIP[SK[d.s]].n+"になった")}
   dvPush();drawDv(true)}
 function dvMen(o,i){var r=null;wars.forEach(function(w){w.U.forEach(function(u){if(!u.dead&&u.o===o.id&&u.i===i)r=Math.max(1,Math.ceil(u.men*Math.max(0,u.hp)/u.maxhp))})});if(r!=null)return r;var n=0;(o.people||[]).forEach(function(q){if(q.s&&q.d===i)n++});return n}
+function vasSig(o){var t=[];objs.forEach(function(V){if(V===o||!dpOwned(V))return;dvs(V).forEach(function(d,i){if(!d.x)t.push(V.id+"_"+i+(dpGet(V,i)?"p":"")+(dpSel[V.id+"_"+i]?"s":"")+dvMen(V,i))})});return t.join(",")}
 function drawMg(force){var p=$("dvp"),M=p.querySelector(".dvmg");if(!M)return;var o=myObj;
   if(!o||!o.founded){M.innerHTML='<div class="lbl">国を建てると、ここで師団を創設・強化できます。</div>';dvMgSig="";return}
   var D=dvs(o),pw=o.pw||0,al=nAlive(o),cap=dvCap(o),can=function(c){return pw>=c?1:0};
-  var sig=[o.name,al,cap,D.map(function(d,i){return(d.x?1:0)+""+d.k+d.s+"_"+(d.x?0:dvMen(o,i))+(d.dp?"p":"")+(dpSel[i]?"s":"")}).join(",")+(mySide()?"w":"p"),can(DVC.mk),can(DVC.gk[1]),can(DVC.gk[2]),can(DVC.gk[3]),can(DVC.sp[1]),can(DVC.sp[2]),can(DVC.sp[3])].join("|");
+  var sig=[o.name,al,cap,D.map(function(d,i){return(d.x?1:0)+""+d.k+(d.hv?"H":"")+d.s+(d.x&&d.kt?"t"+Math.max(0,Math.ceil((20000-(Date.now()-d.kt))/1000)):"")+"_"+(d.x?0:dvMen(o,i))+(d.dp?"p":"")+(dpSel[o.id+"_"+i]?"s":"")}).join(",")+vasSig(o)+(mySide()?"w":"p"),can(DVC.mk),can(DVC.gk[1]),can(DVC.gk[2]),can(DVC.gk[3]),can(DVC.sp[1]),can(DVC.sp[2]),can(DVC.sp[3])].join("|");
   var g=M.querySelector(".dvpw");if(g)g.textContent=Math.floor(pw);
   if(!force&&sig===dvMgSig&&g)return;dvMgSig=sig;
   var pe=!mySide()&&!vassalMe(),old=M.querySelector(".dvl2"),sc=old?old.scrollTop:0,rows="",mkOk=D.length<40&&al<cap&&pw>=DVC.mk;
   D.forEach(function(d,i){var b="",st;
-    if(d.x){st="壊滅";b='<button data-d="rv" data-i="'+i+'"'+(al<cap&&pw>=DVC.rv?'':' disabled')+'>1から復活 '+DVC.rv+'</button>'}
-    else{st=GK[Math.min(3,d.k|0)].n+" ・ "+SHIP[SK[d.s]].n+" ・ 人数 "+dvMen(o,i)+"人"+(d.dp?" ・ 配備済（"+(d.dp.sea?"海域":"陸")+"）":"");
+    if(d.x){st="壊滅";var wt=d.kt?Math.ceil((20000-(Date.now()-d.kt))/1000):0;b='<button data-d="rv" data-i="'+i+'"'+(al<cap&&pw>=DVC.rv&&wt<=0?'':' disabled')+'>'+(wt>0?'復活まであと'+wt+'秒':'1から復活 '+DVC.rv)+'</button>'}
+    else{st=GK[dgk(d)].n+" ・ "+SHIP[SK[d.s]].n+" ・ 人数 "+dvMen(o,i)+"人"+(d.dp?" ・ 配備済（"+(d.dp.sea?"海域":"陸")+"）":"");
       if(d.k<3){var nk=(d.k|0)+1;b+='<button data-d="tk" data-i="'+i+'"'+(pw>=DVC.gk[nk]?'':' disabled')+'>'+GK[nk].n+'へ '+DVC.gk[nk]+'</button>'}
       if(d.s<3)b+='<button data-d="sp" data-i="'+i+'"'+(pw>=DVC.sp[d.s+1]?'':' disabled')+'>'+SHIP[SK[d.s+1]].n+'へ '+DVC.sp[d.s+1]+'</button>'}
-    var sl=pe&&!d.x;rows+='<div class="dvr'+(sl&&dpSel[i]?' on':'')+'"'+(sl?' data-d="ds" data-i="'+i+'" style="flex-wrap:wrap"':' style="cursor:default;flex-wrap:wrap"')+'>'+(sl?'<span class="cb"></span>':'')+'<div class="dvc"><b>'+esc(o.name)+(i+1)+'</b> <span class="dvt">'+st+'</span></div><div class="row">'+b+'</div></div>'});
+    var sl=pe&&!d.x;rows+='<div class="dvr'+(sl&&dpSel[o.id+"_"+i]?' on':'')+'"'+(sl?' data-d="ds" data-k="'+o.id+'_'+i+'" style="flex-wrap:wrap"':' style="cursor:default;flex-wrap:wrap"')+'>'+(sl?'<span class="cb"></span>':'')+'<div class="dvc"><b>'+esc(o.name)+(i+1)+'</b> <span class="dvt">'+st+'</span></div><div class="row">'+b+'</div></div>'});
+  if(pe)objs.forEach(function(V){if(V===o||!dpOwned(V))return;dvs(V).forEach(function(d,i){if(d.x)return;var dp=dpGet(V,i),ky=V.id+"_"+i;rows+='<div class="dvr'+(dpSel[ky]?' on':'')+'" data-d="ds" data-k="'+ky+'" style="flex-wrap:wrap"><span class="cb"></span><div class="dvc"><b>'+esc(V.name)+(i+1)+'</b>（占領国） <span class="dvt">'+GK[dgk(d)].n+" ・ "+SHIP[SK[d.s]].n+" ・ 人数 "+dvMen(V,i)+"人"+(dp?" ・ 配備済（"+(dp.sea?"海域":"陸")+"）":"")+'</span></div></div>'})});
   M.innerHTML='<div class="lbl">'+esc(o.name)+' ／ 国力 <b class="dvpw">'+Math.floor(pw)+'</b> / 200 ・ 師団 '+al+' / 上限'+cap+'（人口で増加）</div>'+
     '<div class="ups"><button data-d="mk"'+(mkOk?'':' disabled')+'><span class="n">師団を創設</span><span class="c">消費 '+DVC.mk+' ・ 最初は歩兵／哨戒艇</span></button></div>'+
     (pe?'<div class="lbl">平時の配備：師団の行をタップで選択 → 「選択を配備」→ 地図をタップ。自国・同盟国・属国の本土、またはその周りの海域（海は文明Lv3以上）に置けます。開戦すると配備地点から出撃します。</div><div class="ups"><button data-d="dpa">全選択</button><button data-d="dpn">選択解除</button><button data-d="dpg"><span class="n">選択を配備</span><span class="c">地図をタップ</span></button><button data-d="dpc"><span class="n">配備を解除</span><span class="c">元の位置へ</span></button></div>':'')+
@@ -1673,7 +1709,7 @@ function drawDv(force){var p=$("dvp");if(!p.classList.contains("show"))return;
 $("dvp").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-d]");if(!b)return;var a=b.getAttribute("data-d"),k=b.getAttribute("data-k"),s=mySide();
   if(a==="x"){$("dvp").classList.remove("show");return}
   if(a==="mk"||a==="tk"||a==="sp"||a==="rv"){dvAct(a,+b.getAttribute("data-i"));return}
-  if(a==="ds"||a==="dpa"||a==="dpn"||a==="dpg"||a==="dpc"){dpAct(a,+b.getAttribute("data-i"));return}
+  if(a==="ds"||a==="dpa"||a==="dpn"||a==="dpg"||a==="dpc"){dpAct(a,a==="ds"?k:0);return}
   if(!s)return;
   if(a==="t"){if(dvSel[k])delete dvSel[k];else dvSel[k]=1;updDvSel();return}
   if(a==="g"){var g=s.L.filter(function(x){return ukey(x)===k})[0];if(g){view.x=cw/2-g.x*view.s;view.y=chh/2-g.y*view.s;usel={w:s.w,u:g};sel=null;hsel=null;editing=false;showSheet();showCmd();render()}return}
@@ -1725,7 +1761,7 @@ function pick(w,u,en,eid){
   if(od.k==="unit"){var T=null;en.forEach(function(e){if(e.id===od.id)T=e});if(T)return T;u.ord=null;wl(w,""+u.name+"の標的を撃破したため待機に戻る","land");return null}
   if(od.k==="auto"){var OO=byId(u.o),cd=en.filter(function(e){return e.m==="sea"?(u.m==="sea"||(OO&&OO.civ>=3)):true});if(cd.length)return pickIn(w,u,cd);return homeTarget(w,u,eid)}
   if(od.k==="home"||od.k==="vas"){/* 進軍中に近くへ敵師団が現れたら、足を止めて迎え撃つ（射程の5倍以内なら自分から寄って戦う） */
-    var sea0=u.m==="sea",R0=sea0?(u.rg||30):GK[u.gk|0].r,AG=R0*5,nr=en.filter(function(e){return(e.m==="sea")===sea0&&Math.hypot(e.x-u.x,e.y-u.y)<AG});
+    var sea0=u.m==="sea",R0=(sea0?(u.rg||30):GK[u.gk|0].r)*CFG.rng,AG=R0*5,nr=en.filter(function(e){return(e.m==="sea")===sea0&&Math.hypot(e.x-u.x,e.y-u.y)<AG});
     if(nr.length)return pickIn(w,u,nr);return homeTarget(w,u,eid)}
   if(od.k==="ally"){var SR2=allyTgt(u),OO2=byId(u.o),own2=OO2&&root(OO2),inb2=en.filter(function(e){if(e.m==="sea")return false;var L3=landAt(e.x,e.y);if(!L3)return false;var r3=root(L3);return r3===SR2||r3===own2});
     if(inb2.length)return pickIn(w,u,inb2);return allyPost(w,u,en)}
@@ -1748,20 +1784,20 @@ function warStep(w,dt){
   var U=w.U.filter(function(u){return!u.dead}),by={};by[w.a]=[];by[w.b]=[];U.forEach(function(u){by[u.sd].push(u)});
   var FZL={};FZL[w.a]=fortsOf(w,w.a);FZL[w.b]=fortsOf(w,w.b);
   U.forEach(function(u){
-    var eid=u.sd===w.a?w.b:w.a,en=by[eid],E=byId(eid),O=byId(u.o),sea=u.m==="sea",R=sea?(u.rg||30):GK[u.gk|0].r,best=null,bd=1e9;
+    var eid=u.sd===w.a?w.b:w.a,en=by[eid],E=byId(eid),O=byId(u.o),sea=u.m==="sea",R=(sea?(u.rg||30):GK[u.gk|0].r)*CFG.rng,best=null,bd=1e9;
     dvSync(w,u,O);u.hit=Math.max(0,u.hit-dt);u.lg=Math.max(0,(u.lg||0)-dt);u.eng=null;u.fe=null;
     en.forEach(function(e){if((e.m==="sea")!==sea)return;var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<R&&d<bd){bd=d;best=e}});
     if(u.ord&&u.ord.k==="unit")en.forEach(function(e){if(e.id===u.ord.id&&(e.m==="sea")===sea&&Math.hypot(e.x-u.x,e.y-u.y)<R)best=e});
-    if(best){u.eng=best;best.dmg+=u.dps*(.8+Math.random()*.4)*dt*homeB(u)/homeB(best);best.last=u;u.hit=.3;fxFire(u,best);return}
+    if(best){u.eng=best;best.dmg+=u.dps*CFG.atk*(.8+Math.random()*.4)*dt*homeB(u)/homeB(best);best.last=u;u.hit=.3;fxFire(u,best);return}
     var fb=null,fd=1e9;FZL[eid].forEach(function(e){if(!fortOn(e.f))return;var d=Math.hypot(e.f.x-u.x,e.f.y-u.y);if(d<R&&d<fd){fd=d;fb=e}});
-    if(fb){u.fe=[fb.f.x,fb.f.y];u.hit=.3;fortHit(fb.o,fb.f,u.dps*(.8+Math.random()*.4)*dt*homeB(u)/(1+castleB(fb.o))/fortMaxHp(fb.o,fb.f),w,u.name);fxFire(u,{x:fb.f.x,y:fb.f.y,m:"land"});return}
+    if(fb){u.fe=[fb.f.x,fb.f.y];u.hit=.3;fortHit(fb.o,fb.f,u.dps*CFG.atk*(.8+Math.random()*.4)*dt*homeB(u)/(1+castleB(fb.o))/fortMaxHp(fb.o,fb.f),w,u.name);fxFire(u,{x:fb.f.x,y:fb.f.y,m:"land"});return}
     u.tt-=dt;if(u.tt<=0||!u.tg||u.tg.dead){u.tt=.5;u.tg=pick(w,u,en,eid)}
     /* 固まり防止：4秒たっても動けていなければ、味方の住民のいる所へ一旦迂回してから再び目標へ */
     u.sk=(u.sk||0)+dt;if(u.sk>=4){if(u.sx!=null&&!u.eng&&u.m==="land"&&u.tg&&!(u.esc>0)&&Math.hypot(u.tg.x-u.x,u.tg.y-u.y)>=3&&Math.hypot(u.x-u.sx,u.y-u.sy)<3){var PP=sidePeople(u.sd);if(PP.length){var DD=PP[Math.floor(Math.random()*PP.length)];u.esc=4;u.et={x:DD.x,y:DD.y}}}u.sx=u.x;u.sy=u.y;u.sk=0}
     if(u.esc>0){u.esc-=dt;u.tg=u.et}
     if(u.m==="build"){fxBuild(u);u.bt+=dt;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;setShip(u,shipOf(O,u.i));wl(w,u.name+"が"+SHIP[u.sh].n+"で出港","sea")}return}
     if(!u.tg)return;var tx=u.tg.x,ty=u.tg.y;if(Math.hypot(tx-u.x,ty-u.y)<3)return;
-    var sp=w.sp*(sea?(u.spf||1.5):GK[u.gk|0].s)*.5*dt,a=Math.atan2(ty-u.y,tx-u.x),nx=u.x+Math.cos(a)*sp,ny=u.y+Math.sin(a)*sp;
+    var sp=w.sp*(sea?(u.spf||1.5):GK[u.gk|0].s)*.5*dt*CFG.spd,a=Math.atan2(ty-u.y,tx-u.x),nx=u.x+Math.cos(a)*sp,ny=u.y+Math.sin(a)*sp;
     if(sea){u.x=nx;u.y=ny;fxWake(u);var ld=landAt(nx,ny);if(!ld){u.sw=true;if(u.tg.m!=="sea"&&Math.hypot(tx-nx,ty-ny)<18){u.m="land";u.sw=false;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+E.name+"の海岸に上陸","land")}}else if(ld&&(u.sw||(u.lt=(u.lt||0)+dt)>5)){u.m="land";u.sw=false;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+(root(ld)===root(E)?E.name+"に":"")+"上陸","land")}else if(!ld)u.lt=0}
     else if(landAt(nx,ny)){u.x=nx;u.y=ny;u.lg=0;if((u.gk|0)>=2)fxDust(u)}
     else if(u.lg>0){u.x=nx;u.y=ny}
@@ -1775,7 +1811,7 @@ function warStep(w,dt){
     if(!bu)return;
     bu.dmg+=fortDps(e.o,f)*(.8+Math.random()*.4)*dt*(1+castleB(e.o))/homeB(bu);bu.last={name:e.o.name+"の要塞"};
     fzFire(f.x,f.y,fLv(f),bu.x,bu.y,bu.m==="sea");w.fz.push([r2(f.x),r2(f.y),r2(bu.x),r2(bu.y),bu.m==="sea"?1:0,fLv(f)])})});
-  U.forEach(function(u){if(u.dmg){u.hp-=u.dmg;u.dmg=0}});
+  U.forEach(function(u){if(u.dmg){u.hp-=u.dmg/CFG.dur;u.dmg=0}});
   U.forEach(function(u){if(u.hp>0||u.dead)return;u.dead=true;fxBoom(u);w.lost[u.sd]+=(u.m==="sea"?.5:1);var O=byId(u.o),k=u.last;loss(O,u,u.men);if(O.dep)O.dep[u.i]=false;dvKill(O,u.i);
     wl(w,(k?k.name+"が":"")+u.name+"を"+(u.m==="sea"?"海戦で撃沈":"陸戦で撃破"),u.m==="sea"?"sea":"land")});
   U=U.filter(function(u){return!u.dead});by[w.a]=[];by[w.b]=[];U.forEach(function(u){by[u.sd].push(u)});
@@ -1812,6 +1848,16 @@ function tank(f){var W=28,H=13,g=G(W,H);
   R(g,17,4,11,1,"l");R(g,17,5,11,1,"m");R(g,25,4,3,2,"n");
   R(g,18,7,4,2,"m");R(g,22,7,5,1,"l");
   VTIP.tnk=[27,5];return S(g)}
+/* 重戦車：戦車より一回り大きく、厚い装甲の幅広い車体・大きな角ばった砲塔・太く短い主砲（砲口制退器つき）・予備履帯 */
+function htank(f){var W=40,H=26,g=G(W,H);
+  R(g,1,12,26,4,"n");P(g,1,12,".");P(g,26,12,".");P(g,1,15,".");P(g,26,15,".");
+  for(var k=0;k<6;k++){var wx=3+k*4+(f?2:0);if(wx>24)wx-=22;D(g,wx,14,0,"m","m");P(g,wx,13,"m")}
+  R(g,2,8,25,4,"c");R(g,2,11,25,1,"d");R(g,27,9,1,2,"c");R(g,28,10,1,1,"d");
+  for(var q=0;q<5;q++)P(g,4+q*5,9,"d");
+  R(g,5,3,15,5,"c");R(g,7,2,11,1,"c");R(g,5,7,15,1,"d");R(g,6,3,1,4,"d");R(g,9,0,4,2,"d");P(g,10,0,"l");
+  R(g,20,4,6,3,"m");R(g,20,4,6,1,"l");R(g,26,3,3,5,"n");R(g,27,4,1,3,"m");
+  R(g,19,8,5,2,"m");R(g,2,6,3,2,"d");
+  VTIP.htk=[28,5];return S(g)}
 /* 装甲車：高い車体・窓・小砲塔（2丁の機関砲）・4輪 */
 function apc(f){var W=20,H=11,g=G(W,H);
   R(g,1,3,18,5,"c");R(g,1,6,18,1,"d");P(g,19,4,"c");
@@ -1847,11 +1893,11 @@ nm:{W:26,H:12,tr:[[16,0,1,5]],br:[7,6,3],fn:[],ms:9,mh:3},
 ds:{W:36,H:13,tr:[[26,0,1,5],[4,0,1,5]],br:[14,6,3],fn:[22],fw:2,ms:17,mh:4},
 cr:{W:48,H:15,tr:[[3,0,2,6],[37,0,2,6]],br:[16,8,5],fn:[27,32],ms:19,mh:4},
 bb:{W:64,H:18,tr:[[2,0,2,6],[9,1,2,6],[43,1,2,6],[51,0,2,6]],br:[23,9,6],fn:[35,41],fw:4,ms:27,mh:5}};
-SPR.tnk=[tank(0),tank(1)];SPR.apc=[apc(0),apc(1)];SPR.art=[art(0),art(1)];
+SPR.tnk=[tank(0),tank(1)];SPR.htk=[htank(0),htank(1)];SPR.apc=[apc(0),apc(1)];SPR.art=[art(0),art(1)];
 ["nm","ds","cr","bb"].forEach(function(k){SPR["s_"+k]=[ship(SH[k],0,"s_"+k),ship(SH[k],1,"s_"+k)]});
 })();
 function vps(){return view.s>=2.2?2:1}
-function vsz(u){if(u.m==="sea"){var r=SPR["s_"+(u.sh||"nm")][0];return[r[0].length,r.length]}var k=u.gk===1?"art":u.gk===2?"apc":"tnk",q=SPR[k][0];return[q[0].length,q.length]}
+function vsz(u){if(u.m==="sea"){var r=SPR["s_"+(u.sh||"nm")][0];return[r[0].length,r.length]}var k=u.gk===1?"art":u.gk===2?"apc":u.gk===4?"htk":"tnk",q=SPR[k][0];return[q[0].length,q.length]}
 function vbot(u){return(u.m==="sea"?4:6)*vps()}
 
 var SPC={},PV=new WeakMap(),SKIN=["#f2c9a0","#e0ac7e","#c68e5f","#8d5a3b"],HAIR=["#2b1d12","#5a3a1e","#c9a227","#1a1a1a","#8a8a8a"];
@@ -1937,13 +1983,13 @@ function drawWar(){wars.concat([peaceW()]).forEach(function(w){
     ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(e.x,e.y);ctx.strokeStyle=col;ctx.lineWidth=u.eng?2.5:1.6;ctx.setLineDash(u.eng?[]:[6,4]);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x-9*Math.cos(a-.4),e.y-9*Math.sin(a-.4));ctx.lineTo(e.x-9*Math.cos(a+.4),e.y-9*Math.sin(a+.4));ctx.closePath();ctx.fillStyle=col;ctx.fill()});
   w.U.forEach(function(u){if(u.dead)return;var s=w2s([u.x,u.y]);if(s.x<-160||s.x>cw+160||s.y<-160||s.y>chh+160)return;var c=cl(u),dk=shade(c,.4);ctx.lineWidth=2;ctx.strokeStyle=dk;ctx.fillStyle=c;
-    if((usel&&usel.u===u)||(myObj&&u.o===myObj.id&&dpSel[u.i]&&PUC[u.o+"_"+u.i]===u)){ctx.beginPath();ctx.arc(s.x,s.y,19,0,7);ctx.strokeStyle=ACC;ctx.lineWidth=3;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=2;ctx.strokeStyle=dk}
+    if((usel&&usel.u===u)||(myObj&&dpSel[u.o+"_"+u.i]&&PUC[u.o+"_"+u.i]===u)){ctx.beginPath();ctx.arc(s.x,s.y,19,0,7);ctx.strokeStyle=ACC;ctx.lineWidth=3;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=2;ctx.strokeStyle=dk}
     if(u.hit>0&&!LITE){ctx.beginPath();ctx.arc(s.x,s.y,9+(.3-u.hit)*50,0,7);ctx.strokeStyle="rgba(229,72,77,"+u.hit*3+")";ctx.stroke();ctx.strokeStyle=dk}
     if(LITE){liteU(s,u,c,dk)}
     else if(u.m==="sea"){drawShip(s,u)}
     else if((u.gk|0)>=1){var tt=u.eng||u.tg,fl=false,T2=(typeof lastT==="number"&&lastT?lastT:0);if(tt){var te=w2s([tt.x,tt.y]);fl=te.x<s.x}
       if(u._lx!=null&&Math.hypot(u.x-u._lx,u.y-u._ly)>.004)u._mv=T2;u._lx=u.x;u._ly=u.y;
-      var mv2=u._mv!=null&&T2-u._mv<260,ps2=vps(),kd=u.gk===1?"art":u.gk===2?"apc":"tnk",fr=mv2?((T2/160|0)%2):0;
+      var mv2=u._mv!=null&&T2-u._mv<260,ps2=vps(),kd=u.gk===1?"art":u.gk===2?"apc":u.gk===4?"htk":"tnk",fr=mv2?((T2/160|0)%2):0;
       ctx.save();ctx.imageSmoothingEnabled=false;sprDraw(sprImg(kd,fr,c,"#000","#000"),s.x,s.y+vbot(u),ps2,fl);
       if(u.eng&&((T2/110|0)%3===0)){var dr=fl?-1:1,tp=VTIP[kd],iw=vsz(u)[0],ih=vsz(u)[1],mx=s.x+dr*(tp[0]+1-iw/2)*ps2,my=s.y+vbot(u)-(ih-tp[1])*ps2;ctx.fillStyle="#fff3a0";ctx.fillRect(dr>0?mx:mx-2*ps2,my-ps2,2*ps2,2*ps2);ctx.fillStyle="#ff9a2e";ctx.fillRect(dr>0?mx+2*ps2:mx-3*ps2,my-ps2/2,ps2,ps2)}
       ctx.restore()}
@@ -2187,7 +2233,7 @@ $("wlb").onclick=function(){var p=$("wlp");p.classList.toggle("show");$("bgp").c
 $("wlp").addEventListener("click",function(e){if(e.target.id==="wlc"){wlog=[];drawWl()}});
 $("spd").onclick=function(){speed=speed===1?5:speed===5?20:1;this.textContent="速度 ×"+speed};
 function bgPanel(){$("bgp").innerHTML='<h4>背景色</h4>'+rgbHTML(bg,"bg")+'<button id="bgr">リセット</button>'}
-$("bgb").onclick=function(){$("wlp").classList.remove("show");var p=$("bgp");p.classList.toggle("show");if(p.classList.contains("show"))bgPanel()};
+$("bgb").onclick=function(){$("wlp").classList.remove("show");$("cfgp").classList.remove("show");var p=$("bgp");p.classList.toggle("show");if(p.classList.contains("show"))bgPanel()};
 $("bgp").addEventListener("input",function(e){if(e.target.hasAttribute("data-ch")){bg=onRGB(e.target);save();render()}});
 $("bgp").addEventListener("click",function(e){if(e.target.id==="bgr"){bg="#2f6fb5";bgPanel();save();render()}});
 window.addEventListener("resize",function(){resize();updMine();showSheet()});
@@ -2201,7 +2247,7 @@ function bc(m,ex){var s=JSON.stringify(m);peers.forEach(function(p){if(!p.sb&&p!
 function applyOne(id,x){var n2=hid(id),o=byId(n2),d;try{d=JSON.parse(x)}catch(e){return}
   if(id===myUid){if(myObj&&objs.indexOf(myObj)>=0)return;o=null}
   if(!o){o={id:n2,founded:true,ruler:null,people:[]};objs.push(o)}
-  if(d.dvs&&o.dvs)d.dvs.forEach(function(n,i){var c=o.dvs[i];if(c&&c.x&&!n.x&&(n.e||0)<=(c.e||0)){n.x=true;n.e=c.e;delete n.dp}});/* 壊滅の古い情報で生き返らないように */
+  if(d.dvs&&o.dvs)d.dvs.forEach(function(n,i){var c=o.dvs[i];if(c&&c.x&&!n.x&&(n.e||0)<=(c.e||0)){n.x=true;n.e=c.e;n.kt=c.kt||Date.now();delete n.dp}});/* 壊滅の古い情報で生き返らないように */
   Object.keys(d).forEach(function(k){o[k]=d[k]});o.founded=true;o.uid=id;
   if(id===myUid){o.mine=true;myObj=o;lastJ=x}world[id]=x}
 function removeOne(id){var o=byId(hid(id));if(o&&o!==myObj)objs.splice(objs.indexOf(o),1);delete world[id]}
@@ -2214,11 +2260,11 @@ function mkPc(){var pc=new RTCPeerConnection({iceServers:[{urls:["stun:stun.l.go
   return pc}
 function gathered(pc){return new Promise(function(r){if(pc.iceGatheringState==="complete")return r();var t=setTimeout(r,6000);pc.onicegatheringstatechange=function(){if(pc.iceGatheringState==="complete"){clearTimeout(t);r()}}})}
 function wire(dc){
-  dc.onopen=function(){peers.push(dc);ns.m="home";netUI();say("友達とつながりました");if(isHost)dc.send(JSON.stringify({t:"all",w:world}));else pushNow(true)};
+  dc.onopen=function(){peers.push(dc);ns.m="home";netUI();say("友達とつながりました");if(isHost)dc.send(JSON.stringify({t:"all",w:world,c:CFG}));else pushNow(true)};
   dc.onclose=function(){var i=peers.indexOf(dc);if(i>=0)peers.splice(i,1);netUI();say("接続が切れました")};
   dc.onmessage=function(e){var m;try{m=JSON.parse(e.data)}catch(x){return}onNet(m,dc)}}
 function onNet(m,dc){
-  if(m.t==="all"){Object.keys(m.w).forEach(function(id){applyOne(id,m.w[id])});saveWorld()}
+  if(m.t==="all"){if(m.c&&!isHost)applyCfg(m.c);Object.keys(m.w).forEach(function(id){applyOne(id,m.w[id])});saveWorld()}
   else if(m.t==="s"){applyOne(m.u,m.j);saveWorld();if(isHost)bc(m,dc)}
   else if(m.t==="d"){removeOne(m.u);saveWorld();if(isHost)bc(m,dc)}
   else if(m.t==="cp"){onCp(m);if(isHost)bc(m,dc)}
@@ -2234,9 +2280,10 @@ function onNet(m,dc){
   else if(m.t==="bty"){var bo2=uObj(m.a),br2=uObj(m.b);if(bo2&&br2)showBetrayed(bo2.id,br2.id);if(isHost)bc(m,dc)}
   else if(m.t==="bt"){if(isHost){var bo=uObj(m.u);if(bo&&bo.ruler)betray(bo)}}
   else if(m.t==="brn"){if(isHost){var bo3=uObj(m.u);if(bo3&&bo3.botH&&bo3.ruler&&typeof m.n==="string"){var n3=m.n.trim().slice(0,30);if(n3){bo3.name=n3;botPush(bo3)}}}}
+  else if(m.t==="cfg"){if(m.c&&!isHost)applyCfg(m.c)}
   else if(m.t==="W"){if(!isHost)applyW(m)}
   else if(m.t==="L"){if(!isHost){wlog.push({t:m.x,m:m.m,k:m.k});if(wlog.length>400)wlog.shift();drawWl()}}
-  else if(m.t==="dk"){if(m.u===myUid&&myObj){var dd=dvs(myObj)[m.i];if(dd&&(dd.e||0)===m.e){dd.x=true;delete dd.dp;pushT=Date.now()+300}}}
+  else if(m.t==="dk"){if(m.u===myUid&&myObj){var dd=dvs(myObj)[m.i];if(dd&&(dd.e||0)===m.e){dd.x=true;dd.kt=Date.now();delete dd.dp;pushT=Date.now()+300}}}
   else if(m.t==="ls"){if(m.u===myUid&&myObj)loss(myObj,{i:m.i},m.n)}
   else if(m.t==="fd"){if(m.u===myUid&&myObj){var ff=(myObj.fac||[])[m.i];if(ff&&fortOn(ff)){ff.hp=Math.max(0,ff.hp-m.d);if(ff.hp<=0)fortBreak(myObj,ff);pushT=Date.now()+300}}}
   else if(m.t==="wp"){if(m.u===myUid&&myObj&&m.p<myObj.pop)myObj.pop=Math.max(2,m.p)}
@@ -2273,6 +2320,21 @@ function applyW(m){var seen={};
 /* 参加側の端末は戦争を計算しないので、同期された状態から攻撃・移動エフェクトをここで出す */
 function guestFx(){if(isHost||!peers.length)return;wars.forEach(function(w){(w.fz||[]).forEach(function(z){fzFire(z[0],z[1],z[5],z[2],z[3],!!z[4])});w.U.forEach(function(u){if(u.dead||u.x==null)return;if(u.eng&&!u.eng.dead)fxFire(u,u.eng);else if(u.fe)fxFire(u,{x:u.fe[0],y:u.fe[1],m:"land"});if(u.m==="sea")fxWake(u);else if(u.m==="build")fxBuild(u);else if((u.gk|0)>=2&&u.nx!=null&&Math.hypot(u.nx-u.x,u.ny-u.y)>1.5)fxDust(u)})})}
 function smoothW(dt){if(isHost||!peers.length)return;var f=Math.min(1,dt*10);wars.forEach(function(w){w.U.forEach(function(u){if(u.nx!=null&&!u.dead){u.x+=(u.nx-u.x)*f;u.y+=(u.ny-u.y)*f}})})}
+/* ===== ゲーム設定パネル：ホストだけ変更でき、変更は全員に配られる ===== */
+var CP=$("cfgp"),cfgT=0;
+function cfgFmt(v){return"×"+(Math.round(v*100)/100)}
+function cfgUI(){var h='<h4>ゲーム設定 <button id="cfx">閉じる</button></h4><div class="lbl">'+(isHost?(peers.length?'<b>あなたはホスト</b>：ここでの設定が参加者全員に反映されます':'設定はこの端末に保存されます。ルームを作る（ホストになる）と、参加者全員に反映されます'):'<b>ホストの設定</b>が反映されています（参加者は変更できません）')+'<br>数値は原作に対する倍率（×1＝原作）。青い項目は原作から変更中</div>';
+  CFG_DEF.forEach(function(x){if(!x.k){h+='<div class="lbl cg"><b>'+x.g+'</b></div>';return}
+    h+='<div class="cr'+(Math.abs(CFG[x.k]-1)>.001?' ch':'')+'" id="cr_'+x.k+'"><span>'+x.n+'</span><b>'+cfgFmt(CFG[x.k])+'</b><input type="range" data-k="'+x.k+'" min="'+x.a+'" max="'+x.b+'" step="'+x.s+'" value="'+CFG[x.k]+'"'+(isHost?'':' disabled')+'></div>'});
+  if(isHost)h+='<div class="row"><button data-c="def">標準に戻す</button><button data-c="one">すべて×1（原作）</button></div>';
+  CP.innerHTML=h}
+function cfgSave(){if(!isHost)return;try{localStorage.setItem("mapwars_cfg",JSON.stringify(CFG))}catch(e){}}
+function cfgBc(){if(cfgT)return;cfgT=setTimeout(function(){cfgT=0;if(isHost&&peers.length)bc({t:"cfg",c:CFG})},150)}
+function applyCfg(c){cfgSet(c);cfgDvc();if(CP.classList.contains("show"))cfgUI()}
+$("cfgb").onclick=function(){var s=!CP.classList.contains("show");$("bgp").classList.remove("show");$("wlp").classList.remove("show");NP.classList.remove("show");CP.classList.toggle("show",s);if(s)cfgUI()};
+CP.addEventListener("input",function(e){var t=e.target,k=t.getAttribute&&t.getAttribute("data-k");if(!k||!isHost)return;var cv0={};cv0[k]=+t.value;cfgSet(cv0);cfgDvc();
+  var r=$("cr_"+k);if(r){r.querySelector("b").textContent=cfgFmt(CFG[k]);r.classList.toggle("ch",Math.abs(CFG[k]-1)>.001)}cfgSave();cfgBc()});
+CP.addEventListener("click",function(e){var t=e.target;if(t.id==="cfx"){CP.classList.remove("show");return}var c=t.getAttribute&&t.getAttribute("data-c");if(!c||!isHost)return;cfgDefaults(c==="one");cfgDvc();cfgSave();cfgUI();if(peers.length)bc({t:"cfg",c:CFG});say(c==="one"?"設定をすべて×1（原作）にしました":"設定を標準に戻しました")});
 function netUI(){var h='<h4>接続 <button id="nx">閉じる</button></h4><div class="lbl">つながっている人：'+peers.length+'人 ／ 1端末1国（端末IDで管理）</div>';
   if(ns.m==="home"){
     if(rt)h+='<div class="lbl">ルーム：<b style="font-size:18px;letter-spacing:.15em">'+rt.code+'</b>（'+(rt.host?"ホスト":"参加中")+'）<br>このコードを友達に伝えると入れます</div><div class="row"><button data-n="rcp">コードをコピー</button><button class="danger" data-n="rl">退室</button></div>';
@@ -2302,11 +2364,11 @@ function rtOpen(code,host){
   rt={cl:cl,ch:ch,code:code,host:host,tm:0,seen:false};isHost=host;
   ch.on("broadcast",{event:"m"},function(e){var p=e.payload,m;if(!p||!rt)return;
     if(isHost){if(p.h||p.f===myUid||(p.to&&p.to!==myUid))return;var pr=rtPeer(p.f);try{m=JSON.parse(p.d)}catch(x){return}
-      if(m.t==="hi"){netUI();rtSend(JSON.stringify({t:"all",w:world}),p.f);return}
+      if(m.t==="hi"){netUI();rtSend(JSON.stringify({t:"all",w:world,c:CFG}),p.f);return}
       onNet(m,pr)}
     else{if(!p.h||(p.to&&p.to!==myUid)||p.x===myUid)return;try{m=JSON.parse(p.d)}catch(x){return}rtSeen();onNet(m,null)}});
   ch.on("presence",{event:"join"},function(e){if(!rt)return;var L=e.newPresences||[];
-    if(isHost){if(e.key!==myUid&&L.some(function(q){return q.role==="guest"})){rtPeer(e.key);say("友達が入室しました");netUI();rtSend(JSON.stringify({t:"all",w:world}),e.key)}}
+    if(isHost){if(e.key!==myUid&&L.some(function(q){return q.role==="guest"})){rtPeer(e.key);say("友達が入室しました");netUI();rtSend(JSON.stringify({t:"all",w:world,c:CFG}),e.key)}}
     else if(e.key!==myUid&&L.some(function(q){return q.role==="host"}))rtSeen()});
   ch.on("presence",{event:"leave"},function(e){if(!rt)return;var L=e.leftPresences||[];
     if(isHost){if(e.key!==myUid){rtDrop(e.key);say("友達が退室しました");netUI()}}
@@ -2317,7 +2379,7 @@ function rtOpen(code,host){
       else{ns.m="接続中…";netUI();rtSend(JSON.stringify({t:"hi"}));rt.tm=setTimeout(function(){if(rt&&!rt.seen){say("ルーム「"+code+"」が見つかりません。コードを確認してください");rtLeave();ns.m="home";netUI()}},9000)}}
     else if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"){say("Supabaseに接続できません（URL・キー・回線を確認）");rtLeave();ns.m="home";netUI()}})}
 function bindNet(){
-  $("netb").onclick=function(){NP.classList.toggle("show");if(NP.classList.contains("show")){ns.m="home";netUI()}};
+  $("netb").onclick=function(){CP.classList.remove("show");NP.classList.toggle("show");if(NP.classList.contains("show")){ns.m="home";netUI()}};
   NP.addEventListener("click",async function(e){var t=e.target;if(t.id==="nx"){NP.classList.remove("show");return}var n=t.getAttribute&&t.getAttribute("data-n");if(!n)return;
     try{
       if(n==="b"){ns.m="home";netUI()}
@@ -2342,7 +2404,7 @@ bindNet();
 (function(){
   var $=function(i){return document.getElementById(i)};
   var mq=window.matchMedia("(max-width:600px),(max-height:480px) and (pointer:coarse)");
-  var P=["bgp","wlp","net","dvp"].map(function(i){return $(i)}),more=$("more"),mb=$("moreb"),sc=$("scrim");
+  var P=["bgp","wlp","net","dvp","cfgp"].map(function(i){return $(i)}),more=$("more"),mb=$("moreb"),sc=$("scrim");
   function anyOpen(){return P.some(function(p){return p.classList.contains("show")})}
   function sync(){var m=more.classList.contains("open");sc.classList.toggle("show",mq.matches&&(m||anyOpen()));mb.classList.toggle("on",m)}
   function closeMenu(){more.classList.remove("open");sync()}
