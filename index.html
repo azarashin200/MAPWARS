@@ -633,12 +633,12 @@ function castleMax(o){var c=o.civ||1;return c>=9?3:c>=6?2:1}
 /* 城の戦力補正：完成した城のレベル合計×5%（最大+45%）。本土（自陣営の国土）にいる陸の師団の攻撃力と耐久力が上がる */
 function castleB(o){var t=0;facs(o,"c").forEach(function(c){if(c.b>=1)t+=Math.floor(c.lv)});return .05*t}
 function homeB(u){if(u.m!=="land")return 1;var O=byId(u.o),L=landAt(u.x,u.y);if(!O||!L||root(L)!==root(O))return 1;return 1+castleB(O)}
-/* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
-var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]};
+/* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分の5%（FORT_ATK）、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
+var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]},FORT_ATK=.05;/* 要塞の攻撃力倍率（現在の5%） */
 function fortCap(o){return Math.ceil(castleCap(o)*1.5)}
 function fLv(f){return Math.max(1,Math.min(3,Math.floor(f.lv)))}
 function tkMul(o){return Math.max(4,sz(o))*(1+.35*((o.mil||1)-1))*lvB(o)}
-function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]}
+function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]*FORT_ATK}
 function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]}
 function fortR(f){return FORT.r[fLv(f)-1]}
 function fortOn(f){return!!f&&f.t==="fo"&&f.b>=1&&!f.ds&&(f.hp==null||f.hp>0)}
@@ -1844,9 +1844,25 @@ function peaceW(){var U=[],seen={},inWar={};/* 戦場にいる師団は平時用
       var M=by[i],Lq=M.filter(function(q){return q.L})[0]||M[0],k=o.id+"_"+i,u=PUC[k];
       if(!u)u=PUC[k]={id:o.id*1000+i,o:o.id,i:i,sd:o.id,m:"land",sh:null,eng:null,tg:null,dead:false,hit:0,ord:null};
       u.name=o.name+(i+1);var dp0=depStart(o,i),nw=Date.now(),pdt=u.pt?Math.min(.25,(nw-u.pt)/1000):0;u.pt=nw;/* 配備地点へは瞬間移動せず、戦争の進軍のように歩いて向かう（青い線） */
-      var tx=dp0?dp0.x:Lq.x,ty=dp0?dp0.y:Lq.y;if(u.x==null||(!dp0&&Math.hypot(tx-u.x,ty-u.y)<4)){u.x=tx;u.y=ty}
-      var ddx=tx-u.x,ddy=ty-u.y,ddd=Math.hypot(ddx,ddy);if(ddd>.5){var stp=Math.min(ddd,12*GK[gkOf(o,i)|0].s*Math.max(1,speed)*pdt);u.x+=ddx/ddd*stp;u.y+=ddy/ddd*stp;ddd-=stp}
-      u.pm=ddd>.5;u.tg=u.pm?{x:tx,y:ty}:null;u.m=(dp0&&dp0.sea&&!u.pm)?"sea":"land";u.sh=u.m==="sea"?shipOf(o,i):null;u.men=M.length;u.hp=1;u.maxhp=1;u.gk=gkOf(o,i);u.tk=u.gk===3;
+      var tx=dp0?dp0.x:Lq.x,ty=dp0?dp0.y:Lq.y,tSea=!!(dp0&&dp0.sea);
+      /* 初登場は目的地に置く（海への配備なら最初から船） */
+      if(u.x==null){u.x=tx;u.y=ty;u.m=tSea?"sea":"land";u.bt=0;u.sw=false;u.lg=0;u.lt=0}
+      else if(!dp0&&u.m==="land"&&Math.hypot(tx-u.x,ty-u.y)<4){u.x=tx;u.y=ty}
+      var ddx=tx-u.x,ddy=ty-u.y,ddd=Math.hypot(ddx,ddy),k1=pdt*Math.max(1,speed);u.lg=Math.max(0,(u.lg||0)-k1);
+      /* 戦争と同じ：陸から海へ出るときは海岸で造船（8秒）→出港。船で進み、陸地に着いたら上陸する。文明Lv3未満は造船できず海を渡れない */
+      if(u.m==="build"){fxBuild(u);u.bt+=k1;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;u.lt=0}}
+      else if(u.m==="sea"){
+        if(ddd>.5){var shk=SHIP[shipOf(o,i)]||SHIP.nm,sst=Math.min(ddd,12*shk.s*k1),sx=u.x+ddx/ddd*sst,sy=u.y+ddy/ddd*sst,sld=landAt(sx,sy);u.x=sx;u.y=sy;ddd-=sst;fxWake(u);
+          if(!sld){u.sw=true;u.lt=0}
+          if(!tSea&&((!sld&&ddd<18)||(sld&&(u.sw||(u.lt=(u.lt||0)+k1)>5)))){u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}
+        else if(!tSea){u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}
+      else if(ddd>.5){
+        var lst=Math.min(ddd,12*GK[gkOf(o,i)|0].s*k1),lnx=u.x+ddx/ddd*lst,lny=u.y+ddy/ddd*lst;
+        if(landAt(lnx,lny)){u.x=lnx;u.y=lny;ddd-=lst;u.lg=0;u.bk=0}
+        else if(u.lg>0){u.x=lnx;u.y=lny;ddd-=lst}
+        else if((o.civ||1)>=3){u.m="build";u.bt=0;u.bk=0}
+        else if(!u.bk){u.bk=1;if(myObj&&o.id===myObj.id)say(o.name+(i+1)+"は海岸で止まった（文明Lv3未満は造船できず、海を渡れない）")}}
+      u.pm=ddd>.5;u.tg=u.pm?{x:tx,y:ty}:null;u.sh=u.m==="sea"?shipOf(o,i):null;u.men=M.length;u.hp=1;u.maxhp=1;u.gk=gkOf(o,i);u.tk=u.gk===3;
       seen[k]=1;U.push(u)}});
   Object.keys(PUC).forEach(function(k){if(!seen[k])delete PUC[k]});
   return{U:U}}
