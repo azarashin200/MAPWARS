@@ -734,7 +734,12 @@ function autoHouse(o){var H=o.houses||[],F=o.fac=o.fac||[],lo=null,bl=0;
   if(!fb&&fCanBuild(o,"c")&&o.pw>=fCost(o,"c")+60){o.pw-=fCost(o,"c");addFac(o,"c",0);return}
   if(!fb&&fCanBuild(o,t)&&o.pw>=fCost(o,t)+30){o.pw-=fCost(o,t);addFac(o,t,0);return}
   if(!fb&&fCanBuild(o,"fo")&&o.pw>=Math.min(fCost(o,"fo")+60,195)){o.pw-=fCost(o,"fo");addFac(o,"fo",0);return}
-  if(lo&&o.pw>=upCost(lo)+40){o.pw-=upCost(lo);lo.lv++;if(lo.t==="fo")lo.hp=1}}
+  /* 人口上限・家の数の上限に達していても、建築物のレベルはMAXまで自動で改築する。
+     低レベル順に貯めて改築し、国力の上限(200)に届かず永久に買えない物は飛ばして次へ進む */
+  var cand=H.concat(F).filter(function(h){return h.b>=1&&canReno(o,h)}).sort(function(a,c){return a.lv-c.lv});
+  for(var ci=0;ci<cand.length;ci++){var cu=cand[ci],cc=upCost(cu);if(cc>200)continue;
+    if(o.pw>=Math.min(cc+40,200)&&o.pw>=cc){o.pw-=cc;cu.lv=Math.floor(cu.lv)+1;if(cu.t==="fo")cu.hp=1;return}
+    break}}
 function houseAt(p){var k=Math.max(.28,Math.min(1.1,view.s)),best=null;
   objs.forEach(function(o){if(!o.founded)return;(o.houses||[]).concat(o.fac||[]).forEach(function(h){var s=w2s([h.x,h.y]),w=fsz(h)*k,hh=h.t==="c"?w*1.5:h.t==="fo"?w*1.1:h.t?w*.85:w*(.55+.04*Math.floor(h.lv))+w*.45;
     if(Math.abs(p.x-s.x)<=w/2+7&&p.y>=s.y-hh-5&&p.y<=s.y+7&&(!best||h.y>best.h.y))best={h:h,o:o}})});return best}
