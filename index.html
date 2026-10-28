@@ -616,7 +616,7 @@ function houseCap(o){return Math.min(Math.max(2,Math.min(80,Math.ceil((areaCap(o
 function bCost(o){return 20+4*(o.houses||[]).length}
 function rCost(h){return 15+10*Math.floor(h.lv)}
 function canBuild(o){return(o.houses||[]).length<houseCap(o)}
-function canReno(o,h){if(!h||h.b<1)return false;if(h.t==="c")return h.lv<castleMax(o);return h.lv<Math.min(10,o.civ||1)}
+function canReno(o,h){if(!h||h.b<1||h.ds)return false;if(h.t==="c"||h.t==="fo")return h.lv<castleMax(o);return h.lv<Math.min(10,o.civ||1)}
 function popCap(o){return Math.min(areaCap(o),2+5*doneH(o))}
 function doneH(o){return(o.houses||[]).filter(function(h){return h.b>=1}).length}
 function houseTxt(o){var H=o.houses||[],b=H.length-doneH(o),av=H.length?H.reduce(function(a,h){return a+h.lv},0)/H.length:1;return'家 <b>'+doneH(o)+'</b>軒'+(b?'（建築中 '+b+'）':'')+' / 上限 '+houseCap(o)+' ・ 平均Lv '+av.toFixed(1)+' ・ 人口上限 '+Math.floor(areaCap(o))}
@@ -624,7 +624,7 @@ function addHouse(o,b){var bd=bounds(o.pts),best=null,bs=-1,i;
   for(i=0;i<25;i++){var x=bd[0]+Math.random()*(bd[2]-bd[0]),y=bd[1]+Math.random()*(bd[3]-bd[1]);if(!pip([x,y],o.pts))continue;var m=1e9;o.houses.forEach(function(h){m=Math.min(m,Math.hypot(h.x-x,h.y-y))});if(m>bs){bs=m;best=[x,y]}}
   if(!best)best=bbox(o.pts);o.houses.push({x:best[0],y:best[1],lv:1,b:b})}
 function houseSim(o,dt){var H=o.houses=o.houses||[];if(!H.length)addHouse(o,1);var e=1+.1*(o.edu-1);
-  H.forEach(function(h){if(h.b<1)h.b=Math.min(1,h.b+dt/15*e)});(o.fac=o.fac||[]).forEach(function(f){if(f.b<1)f.b=Math.min(1,f.b+dt/15*e)});
+  H.forEach(function(h){if(h.b<1)h.b=Math.min(1,h.b+dt/15*e)});(o.fac=o.fac||[]).forEach(function(f){if(f.b<1){f.b=Math.min(1,f.b+(f.rb?dt/60:dt/15*e));if(f.b>=1&&f.rb){delete f.rb;f.hp=1}}else if(f.t==="fo"&&!f.ds&&f.hp<1&&!inWar(o))f.hp=Math.min(1,f.hp+dt/150)});
   if(o.auto){o.at=(o.at||0)-dt;if(o.at<=0){o.at=2;autoHouse(o)}}}
 /* ===== 農地・鉱山：国力の回復速度を上げる。数とレベルの上限は文明レベル依存 ===== */
 /* ===== 城：文明Lv3で1つ／Lv6で2つ／Lv9で3つまで。改築は Lv6 で城Lv2、Lv9 で城Lv3（さらに大きく） ===== */
@@ -633,8 +633,36 @@ function castleMax(o){var c=o.civ||1;return c>=9?3:c>=6?2:1}
 /* 城の戦力補正：完成した城のレベル合計×5%（最大+45%）。本土（自陣営の国土）にいる陸の師団の攻撃力と耐久力が上がる */
 function castleB(o){var t=0;facs(o,"c").forEach(function(c){if(c.b>=1)t+=Math.floor(c.lv)});return .05*t}
 function homeB(u){if(u.m!=="land")return 1;var O=byId(u.o),L=landAt(u.x,u.y);if(!O||!L||root(L)!==root(O))return 1;return 1+castleB(O)}
-function fsz(h){return h.t==="c"?30+9*h.lv:h.t?18+3*h.lv:14+3.4*h.lv}
-var FT={c:{n:"城",e:"",cap:castleCap,base:60,step:40,ub:60,us:50,rate:0},f:{n:"農地",e:"",cap:function(o){return 2+(o.civ||1)},base:25,step:5,ub:20,us:12,rate:.3},m:{n:"鉱山",e:"",cap:function(o){return 1+(o.civ||1)},base:35,step:7,ub:30,us:15,rate:.5}};
+/* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
+var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]};
+function fortCap(o){return Math.ceil(castleCap(o)*1.5)}
+function fLv(f){return Math.max(1,Math.min(3,Math.floor(f.lv)))}
+function tkMul(o){return Math.max(4,sz(o))*(1+.35*((o.mil||1)-1))*lvB(o)}
+function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]}
+function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]}
+function fortR(f){return FORT.r[fLv(f)-1]}
+function fortOn(f){return!!f&&f.t==="fo"&&f.b>=1&&!f.ds&&(f.hp==null||f.hp>0)}
+function fortRe(f){return 50+40*fLv(f)}
+function inWar(o){var r=root(o).id;return wars.some(function(w){return w.a===r||w.b===r||(w.j&&w.j[r])})}
+var FDQ={},FA={},FP={};
+function fzKey(x,y){return r2(x)+","+r2(y)}
+function fortBreak(O,f){if(f.ds)return;f.hp=0;f.ds=1;delete f.rb;fxBoom({m:"land",x:f.x,y:f.y,tk:1});if(O&&O.mine)pushT=Date.now()+300}
+function fortHit(O,f,r,w,by){if(!fortOn(f))return;f.hp=Math.max(0,f.hp-r);
+  var rem=online&&O&&!O.mine&&!O.botH&&O.uid;
+  if(rem){var k=O.uid+"|"+(O.fac||[]).indexOf(f);FDQ[k]=(FDQ[k]||0)+r+(f.hp<=0?2:0)}
+  if(f.hp<=0){fortBreak(O,f);wl(w,(by?by+"が":"")+O.name+"の要塞を破壊","land")}}
+function fdFlush(){Object.keys(FDQ).forEach(function(k){var q=k.split("|");bc({t:"fd",u:q[0],i:+q[1],d:r2(FDQ[k])});delete FDQ[k]})}
+function fortsOf(w,id){var L=[];sideMem(w,id).forEach(function(m){(m.fac||[]).forEach(function(f){if(fortOn(f))L.push({f:f,o:m})})});return L}
+/* 砲撃エフェクト（ホストも参加者もここを通る）：砲塔の向きと反動を記録し、砲口から弾を飛ばす */
+function fzFire(x,y,lv,ex,ey,sea){var k=fzKey(x,y),now=performance.now()/1000,a=FA[k]||(FA[k]={ang:Math.atan2(ey-y,ex-x),pt:0,fire:0,t:-9});a.tx=ex;a.ty=ey;a.t=now;
+  var ps=FP[k]||(FP[k]={m:"land",tk:1,gk:3,fxN:0}),kk=Math.max(.28,Math.min(1.1,view.s));ps.x=x;ps.y=y-(34+7*lv)*kk*.85/Math.max(.05,view.s);ps.sh=lv>=3?"bb":null;
+  var b=ps.fxN;fxFire(ps,{x:ex,y:ey,m:sea?"sea":"land"});if(ps.fxN!==b)a.fire=now}
+function fortBar(X,y,wd,r){ctx.fillStyle="rgba(0,0,0,.45)";ctx.fillRect(X-wd/2,y,wd,4);ctx.fillStyle=r>.5?"#30a46c":r>.25?"#e8a317":"#e5484d";ctx.fillRect(X-wd/2,y,wd*Math.max(0,r),4);ctx.strokeStyle="rgba(0,0,0,.6)";ctx.lineWidth=1;ctx.strokeRect(X-wd/2,y,wd,4)}
+function renoAct(o){var hs=selObj(o);if(!hs)return;
+  if(hs.t==="fo"&&hs.ds){var rr=fortRe(hs);if(o.pw>=rr){o.pw-=rr;hs.ds=0;hs.b=0;hs.rb=1;hs.hp=1;for(var fj=0;fj<4;fj++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(o.name+"の要塞の再建築が始まった（1分）")}return}
+  if(canReno(o,hs)){var rc=upCost(hs);if(o.pw>=rc){o.pw-=rc;hs.lv=Math.floor(hs.lv)+1;if(hs.t==="fo")hs.hp=1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(selName(hs)+"がLv"+hs.lv+"に改築された")}}}
+function fsz(h){return h.t==="c"?30+9*h.lv:h.t==="fo"?34+7*h.lv:h.t?18+3*h.lv:14+3.4*h.lv}
+var FT={c:{n:"城",e:"",cap:castleCap,base:60,step:40,ub:60,us:50,rate:0},f:{n:"農地",e:"",cap:function(o){return 2+(o.civ||1)},base:25,step:5,ub:20,us:12,rate:.3},m:{n:"鉱山",e:"",cap:function(o){return 1+(o.civ||1)},base:35,step:7,ub:30,us:15,rate:.5},fo:{n:"要塞",e:"",cap:fortCap,base:90,step:25,ub:80,us:50,rate:0}};
 function facs(o,t){return(o.fac||[]).filter(function(f){return f.t===t})}
 function fCost(o,t){return FT[t].base+FT[t].step*facs(o,t).length}
 function fCanBuild(o,t){return facs(o,t).length<FT[t].cap(o)}
@@ -643,40 +671,45 @@ function upCost(h){return h.t?FT[h.t].ub+FT[h.t].us*Math.floor(h.lv):rCost(h)}
 function selObj(o){return hsel&&((o.houses||[]).indexOf(hsel)>=0||(o.fac||[]).indexOf(hsel)>=0)?hsel:null}
 function selName(h){return h.t?FT[h.t].n:"家"}
 function facTxt(o){var a=facs(o,"f"),b=facs(o,"m");function av(L){return L.length?(L.reduce(function(x,h){return x+h.lv},0)/L.length).toFixed(1):"-"}
-  return'農地 <b>'+a.length+'</b>/'+FT.f.cap(o)+'（Lv'+av(a)+'）・ 鉱山 <b>'+b.length+'</b>/'+FT.m.cap(o)+'（Lv'+av(b)+'）・ 城 <b>'+facs(o,"c").length+'</b>/'+FT.c.cap(o)+'（Lv'+av(facs(o,"c"))+'）'+(castleB(o)>0?' ・ 本土の師団 攻撃/耐久 ×'+(1+castleB(o)).toFixed(2):'')+' ・ 国力回復 <b>+'+pwRate(o).toFixed(1)+'</b>/秒'}
+  return'農地 <b>'+a.length+'</b>/'+FT.f.cap(o)+'（Lv'+av(a)+'）・ 鉱山 <b>'+b.length+'</b>/'+FT.m.cap(o)+'（Lv'+av(b)+'）・ 城 <b>'+facs(o,"c").length+'</b>/'+FT.c.cap(o)+'（Lv'+av(facs(o,"c"))+'）'+' ・ 要塞 <b>'+facs(o,"fo").length+'</b>/'+FT.fo.cap(o)+'（Lv'+av(facs(o,"fo"))+'）'+(castleB(o)>0?' ・ 本土の師団 攻撃/耐久 ×'+(1+castleB(o)).toFixed(2):'')+' ・ 国力回復 <b>+'+pwRate(o).toFixed(1)+'</b>/秒'}
 function addFac(o,t,b){var bd=bounds(o.pts),best=null,bs=-1,i,all=(o.houses||[]).concat(o.fac||[]);
   for(i=0;i<30;i++){var x=bd[0]+Math.random()*(bd[2]-bd[0]),y=bd[1]+Math.random()*(bd[3]-bd[1]);if(!pip([x,y],o.pts))continue;var m=1e9;all.forEach(function(h){m=Math.min(m,Math.hypot(h.x-x,h.y-y))});if(m>bs){bs=m;best=[x,y]}}
-  if(!best)best=bbox(o.pts);(o.fac=o.fac||[]).push({x:best[0],y:best[1],lv:1,b:b,t:t})}
+  if(!best)best=bbox(o.pts);var nf={x:best[0],y:best[1],lv:1,b:b,t:t};if(t==="fo")nf.hp=1;(o.fac=o.fac||[]).push(nf)}
 /* 自動運営ON の国だけ、国力で家・農地・鉱山を建て・改築する（NPC用） */
 function autoHouse(o){var H=o.houses||[],F=o.fac=o.fac||[],lo=null,bl=0;
   H.forEach(function(h){if(h.b<1)bl++});
   H.concat(F).forEach(function(h){if(h.b>=1&&canReno(o,h)&&(!lo||h.lv<lo.lv))lo=h});
+  var df=null;F.forEach(function(f){if(f.t==="fo"&&f.ds)df=f});if(df&&o.pw>=fortRe(df)+20){o.pw-=fortRe(df);df.ds=0;df.b=0;df.rb=1;df.hp=1;return}
   if(bl<2&&canBuild(o)&&o.pop>=popCap(o)*.8&&o.pw>=bCost(o)){o.pw-=bCost(o);addHouse(o,0);return}
   var t=facs(o,"f").length<=facs(o,"m").length?"f":"m",fb=F.filter(function(f){return f.b<1}).length;
   if(!fb&&fCanBuild(o,"c")&&o.pw>=fCost(o,"c")+60){o.pw-=fCost(o,"c");addFac(o,"c",0);return}
   if(!fb&&fCanBuild(o,t)&&o.pw>=fCost(o,t)+30){o.pw-=fCost(o,t);addFac(o,t,0);return}
-  if(lo&&o.pw>=upCost(lo)+40){o.pw-=upCost(lo);lo.lv++}}
+  if(!fb&&fCanBuild(o,"fo")&&o.pw>=Math.min(fCost(o,"fo")+60,195)){o.pw-=fCost(o,"fo");addFac(o,"fo",0);return}
+  if(lo&&o.pw>=upCost(lo)+40){o.pw-=upCost(lo);lo.lv++;if(lo.t==="fo")lo.hp=1}}
 function houseAt(p){var k=Math.max(.28,Math.min(1.1,view.s)),best=null;
-  objs.forEach(function(o){if(!o.founded)return;(o.houses||[]).concat(o.fac||[]).forEach(function(h){var s=w2s([h.x,h.y]),w=fsz(h)*k,hh=h.t==="c"?w*1.5:h.t?w*.85:w*(.55+.04*Math.floor(h.lv))+w*.45;
+  objs.forEach(function(o){if(!o.founded)return;(o.houses||[]).concat(o.fac||[]).forEach(function(h){var s=w2s([h.x,h.y]),w=fsz(h)*k,hh=h.t==="c"?w*1.5:h.t==="fo"?w*1.1:h.t?w*.85:w*(.55+.04*Math.floor(h.lv))+w*.45;
     if(Math.abs(p.x-s.x)<=w/2+7&&p.y>=s.y-hh-5&&p.y<=s.y+7&&(!best||h.y>best.h.y))best={h:h,o:o}})});return best}
 /* 軽量モード用の簡易建物（建築中は通常表示） */
 function liteB(h,o,k){var s=w2s([h.x,h.y]),w=fsz(h)*k,X=s.x,Y=s.y,c=eff(o),hh=w*.6,t=h.t;
   ctx.lineJoin="round";ctx.lineWidth=1;ctx.strokeStyle="rgba(50,32,16,.75)";ctx.setLineDash([]);
   if(t==="f"){ctx.fillStyle="#7fae55";ctx.beginPath();ctx.ellipse(X,Y-w*.12,w*.6,w*.3,0,0,7);ctx.fill();ctx.stroke();return}
   if(t==="m"){ctx.fillStyle="#8d8697";ctx.beginPath();ctx.moveTo(X-w*.55,Y);ctx.lineTo(X,Y-w*.7);ctx.lineTo(X+w*.55,Y);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#2a2b31";ctx.fillRect(X-w*.12,Y-w*.25,w*.24,w*.25);return}
+  if(t==="fo"){if(h.ds){ctx.fillStyle="#555";ctx.beginPath();ctx.ellipse(X,Y-w*.08,w*.55,w*.2,0,0,7);ctx.fill();ctx.stroke();return}
+    ctx.fillStyle="#9aa0ab";ctx.fillRect(X-w*.42,Y-w*.62,w*.84,w*.62);ctx.strokeRect(X-w*.42,Y-w*.62,w*.84,w*.62);ctx.fillStyle=shade(c,.8);ctx.fillRect(X-w*.42,Y-w*.45,w*.84,w*.1);
+    ctx.fillStyle="#3b3e47";ctx.fillRect(X-w*.08,Y-w*.86,w*.62,w*.12);ctx.strokeRect(X-w*.08,Y-w*.86,w*.62,w*.12);if(h.hp<1)fortBar(X,Y-w*1.05,w*.8,h.hp);return}
   if(t==="c"){hh=w*.9;ctx.fillStyle="#aab0ba";ctx.fillRect(X-w*.5,Y-hh,w,hh);ctx.strokeRect(X-w*.5,Y-hh,w,hh);ctx.fillStyle=shade(c,.8);ctx.fillRect(X-w*.5,Y-hh-w*.15,w,w*.15);return}
   ctx.fillStyle="#ead9b5";ctx.fillRect(X-w/2,Y-hh,w,hh);ctx.strokeRect(X-w/2,Y-hh,w,hh);
   ctx.fillStyle=h.lv>=9?"#e0a800":shade(c,.7);ctx.beginPath();ctx.moveTo(X-w/2-2,Y-hh);ctx.lineTo(X,Y-hh-w*.35);ctx.lineTo(X+w/2+2,Y-hh);ctx.closePath();ctx.fill();ctx.stroke()}
 function setLite(v){LITE=!!v;try{localStorage.setItem("mapwars_lite",LITE?"1":"0")}catch(e){}document.body.classList.toggle("lite",LITE);dprCap=LITE?1:99;if(LITE){FX.length=0}perfN=perfS=0;resize();mmDraw(true)}
 function drawHouses(){var L=[];objs.forEach(function(o){if(o.founded)(o.houses||[]).concat(o.fac||[]).forEach(function(h){L.push([h,o])})});L.sort(function(a,b){return a[0].y-b[0].y});var k=Math.max(.28,Math.min(1.1,view.s));L.forEach(function(e){var sc=w2s([e[0].x,e[0].y]),mg=fsz(e[0])*k*5+80;if(sc.x<-mg||sc.x>cw+mg||sc.y<-mg||sc.y>chh+mg)return;if(LITE&&e[0].b>=1)liteB(e[0],e[1],k);else e[0].t?drawFac(e[0],e[1],k):drawHouse(e[0],e[1],k)});
-  var hs=sel&&selObj(sel);if(hs){var q=w2s([hs.x,hs.y]),w=fsz(hs)*k;ctx.strokeStyle=ACC;ctx.lineWidth=2.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.ellipse(q.x,q.y-w*.4,w*.85,w*.85,0,0,7);ctx.stroke();ctx.setLineDash([]);ctx.font="700 11px sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.8)";var lt=selName(hs)+" Lv"+Math.floor(hs.lv);ctx.strokeText(lt,q.x,q.y-w*1.35);ctx.fillStyle="#26303d";ctx.fillText(lt,q.x,q.y-w*1.35)}}
-function facWip(f,X,Y,top){ctx.font="600 10px sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#26303d";ctx.fillText("建築中 "+Math.floor(f.b*100)+"%",X,Y-top-6)}
+  var hs=sel&&selObj(sel);if(hs){var q=w2s([hs.x,hs.y]),w=fsz(hs)*k;if(hs.t==="fo"&&fortOn(hs)){var rr=fortR(hs)*view.s;ctx.save();ctx.globalAlpha=.1;ctx.fillStyle=ACC;ctx.beginPath();ctx.arc(q.x,q.y,rr,0,7);ctx.fill();ctx.globalAlpha=.55;ctx.strokeStyle=ACC;ctx.lineWidth=1.5;ctx.setLineDash([8,6]);ctx.stroke();ctx.restore()}ctx.strokeStyle=ACC;ctx.lineWidth=2.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.ellipse(q.x,q.y-w*.4,w*.85,w*.85,0,0,7);ctx.stroke();ctx.setLineDash([]);ctx.font="700 11px sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.8)";var lt=selName(hs)+" Lv"+Math.floor(hs.lv)+(hs.t==="fo"?(hs.ds?"（破壊）":" HP"+Math.round(hs.hp*100)+"%"):"");ctx.strokeText(lt,q.x,q.y-w*1.35);ctx.fillStyle="#26303d";ctx.fillText(lt,q.x,q.y-w*1.35)}}
+function facWip(f,X,Y,top){ctx.font="600 10px sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#26303d";ctx.fillText((f.rb?"再建築中 ":"建築中 ")+Math.floor(f.b*100)+"%",X,Y-top-6)}
 function drawFac(f,o,k){var s=w2s([f.x,f.y]),t=Math.floor(f.lv),w=fsz(f)*k,X=s.x,Y=s.y,xl=X-w/2,xr=X+w/2,i,j,T=(typeof lastT==="number"&&lastT?lastT:0)/1000,LN="rgba(50,32,16,.75)";
   function P(a,fl,st){ctx.beginPath();ctx.moveTo(a[0],a[1]);for(var q=2;q<a.length;q+=2)ctx.lineTo(a[q],a[q+1]);ctx.closePath();if(fl){ctx.fillStyle=fl;ctx.fill()}if(st)ctx.stroke()}
   ctx.lineJoin="round";ctx.lineCap="round";ctx.lineWidth=1;ctx.strokeStyle=LN;ctx.setLineDash([]);
   /* 地面の影 */
   ctx.fillStyle="rgba(0,0,0,.18)";ctx.beginPath();ctx.ellipse(X+w*.08,Y,w*.7,w*.14,0,0,7);ctx.fill();
-  if(f.t==="c")castle();else if(f.t==="f")farm();else mine();
+  if(f.t==="c")castle();else if(f.t==="fo")fort();else if(f.t==="f")farm();else mine();
   ctx.lineWidth=1;ctx.setLineDash([]);
 
   /* ===== 農地：家と同じ斜め投影。盛り土の畑・畝・作物・柵・納屋 ===== */
@@ -798,6 +831,56 @@ function drawFac(f,o,k){var s=w2s([f.x,f.y]),t=Math.floor(f.lv),w=fsz(f)*k,X=s.x
     /* 隅の塔 */
     var th=wh*(1.35+.3*t),tw=w*.19,y1=cyl(wl,th,tw,t>=2,Y+w*.02),y2=cyl(wr,th,tw,t>=2,Y+w*.02);
     flag(wl,y1-1,t>=3?"#4a73c9":rc,w*.14);flag(wr,y2-1,t>=3?"#4a73c9":rc,w*.14);
+  }
+
+  /* ===== 要塞：石の円筒砲台。砲塔が敵へ回頭して反動で砲身が下がる。Lv1=単装砲／Lv2=連装砲＋脇の砲台と城壁／Lv3=金の砲塔に三連装重砲。破壊されると瓦礫、再建築中は足場 ===== */
+  function fort(){
+    var rc=eff(o),C1="#d8dae0",C2="#aeb2bc",C3="#7d818d",DK="#8e929d",GD="#d9a21b",kt=performance.now()/1000,
+        bw=w*(.66+.07*t),bh=w*(.3+.07*t),i,g;
+    function drum(cx,by,ww,hh,topc,band){var xx=cx-ww/2,r=ww*.16,j,yy;g=ctx.createLinearGradient(xx,0,xx+ww,0);g.addColorStop(0,C1);g.addColorStop(.45,C2);g.addColorStop(1,C3);
+      ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(xx,by-hh);ctx.lineTo(xx,by);ctx.quadraticCurveTo(cx,by+r*2,xx+ww,by);ctx.lineTo(xx+ww,by-hh);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.strokeStyle="rgba(50,52,62,.3)";ctx.lineWidth=.7;ctx.beginPath();for(j=1;j<4;j++){yy=by-hh*j/4;ctx.moveTo(xx,yy);ctx.quadraticCurveTo(cx,yy+r*2,xx+ww,yy)}ctx.stroke();ctx.strokeStyle=LN;ctx.lineWidth=1;
+      if(band){ctx.beginPath();ctx.moveTo(xx,by-hh*.66);ctx.quadraticCurveTo(cx,by-hh*.66+r*2,xx+ww,by-hh*.66);ctx.lineTo(xx+ww,by-hh*.4);ctx.quadraticCurveTo(cx,by-hh*.4+r*2,xx,by-hh*.4);ctx.closePath();ctx.fillStyle=rc;ctx.fill();ctx.stroke()}
+      ctx.fillStyle=topc||DK;ctx.beginPath();ctx.ellipse(cx,by-hh,ww/2,r,0,0,7);ctx.fill();ctx.stroke();return by-hh}
+    function guns(cx,cy,L,wd,n,ang,rc2){var ux=Math.cos(ang),uy=Math.sin(ang)*.6,px=-uy,py=ux,sp=wd*2.2,j,off,sx,sy,ex,ey;
+      for(j=0;j<n;j++){off=(j-(n-1)/2)*sp;sx=cx+px*off-ux*rc2;sy=cy+py*off-uy*rc2;ex=sx+ux*L;ey=sy+uy*L;ctx.lineCap="butt";
+        ctx.strokeStyle="#2e3037";ctx.lineWidth=wd+1.6;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+        ctx.strokeStyle="#6a6f7c";ctx.lineWidth=wd;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+        ctx.strokeStyle="#3a3c45";ctx.lineWidth=wd+2.6;ctx.beginPath();ctx.moveTo(ex-ux*wd*.9,ey-uy*wd*.9);ctx.lineTo(ex,ey);ctx.stroke();
+        if(rc2>wd*1.1&&j===(n>>1)){var gl=ctx.createRadialGradient(ex,ey,0,ex,ey,wd*3.2);gl.addColorStop(0,"rgba(255,240,170,.95)");gl.addColorStop(1,"rgba(255,160,40,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(ex,ey,wd*3.2,0,7);ctx.fill()}}
+      ctx.lineCap="round";ctx.lineWidth=1;ctx.strokeStyle=LN}
+    /* 破壊：瓦礫と折れた砲身、くすぶる煙 */
+    if(f.ds){ctx.fillStyle="rgba(40,36,34,.55)";ctx.beginPath();ctx.ellipse(X,Y-w*.02,w*.62,w*.2,0,0,7);ctx.fill();
+      [[-.5,.22,.2],[-.24,.18,.3],[.06,.25,.16],[.34,.16,.24],[-.08,.14,.12]].forEach(function(a,j){P([X+a[0]*w,Y,X+(a[0]+a[1])*w,Y,X+(a[0]+a[1])*w-w*.03,Y-a[2]*w,X+a[0]*w+w*.02,Y-a[2]*w*.8],j%2?C3:C2,1)});
+      ctx.save();ctx.translate(X+w*.12,Y-w*.12);ctx.rotate(-.35);ctx.fillStyle="#4a4d57";ctx.fillRect(-w*.3,-w*.035,w*.5,w*.07);ctx.strokeRect(-w*.3,-w*.035,w*.5,w*.07);ctx.restore();
+      for(i=0;i<3;i++){var ph=(kt*.4+i/3)%1;ctx.fillStyle="rgba(70,70,76,"+.35*(1-ph)+")";ctx.beginPath();ctx.arc(X+Math.sin(kt+i*2)*w*.06,Y-w*.15-ph*w*.7,w*(.08+.1*ph),0,7);ctx.fill()}
+      ctx.font="600 10px sans-serif";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#a33";ctx.fillText("破壊（再建築可）",X,Y-w*.95);return}
+    /* 建築中・再建築中：足場 */
+    if(f.b<1){var p=Math.max(.1,f.b),bh2=(bh+w*.3)*p;
+      P([X-bw/2,Y,X+bw/2,Y,X+bw/2,Y-bh2,X-bw/2,Y-bh2],"rgba(176,142,102,.85)",1);
+      ctx.strokeStyle="#6b4a1f";ctx.setLineDash([3,3]);ctx.strokeRect(X-bw/2,Y-bh-w*.3,bw,bh+w*.3);ctx.setLineDash([]);
+      ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(X-bw/2-3,Y);ctx.lineTo(X-bw/2-3,Y-bh2-8);ctx.moveTo(X+bw/2+3,Y);ctx.lineTo(X+bw/2+3,Y-bh2-8);ctx.moveTo(X-bw/2-3,Y-bh2*.5);ctx.lineTo(X+bw/2+3,Y-bh2*.5);ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle=LN;
+      facWip(f,X,Y,bh+w*.3+6);return}
+    /* 砲塔の向き：交戦中は標的へ、平時はゆっくり見回す */
+    var fk=fzKey(f.x,f.y),A=FA[fk]||(FA[fk]={ang:.4,pt:0,fire:0,t:-9}),act=kt-A.t<1.2,tg=act?Math.atan2(A.ty-f.y,A.tx-f.x):.5+Math.sin(kt*.35+f.x)*.9,df=tg-A.ang;
+    df=((df+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;var dtt=A.pt?Math.min(.1,kt-A.pt):0;A.pt=kt;A.ang+=df*Math.min(1,dtt*(act?6:1.5));
+    var rec=A.fire?Math.max(0,1-(kt-A.fire)/.22):0,wd=Math.max(1.8,w*(.04+.01*t)),L=bw*(.5+.09*t);
+    /* 城壁（Lv2〜）と脇の砲台 */
+    if(t>=2){var wy0=Y-w*.04,wh2=w*.13,ww2=w*(.56+.04*t),n=3+t*2,mw=ww2*2/(2*n-1);
+      P([X-ww2,wy0,X+ww2,wy0,X+ww2,wy0-wh2,X-ww2,wy0-wh2],C2,1);
+      ctx.fillStyle=C1;for(i=0;i<n;i++){ctx.fillRect(X-ww2+i*2*mw,wy0-wh2-w*.045,mw,w*.045);ctx.strokeRect(X-ww2+i*2*mw,wy0-wh2-w*.045,mw,w*.045)}
+      [-1,1].forEach(function(sd){var cx=X+sd*w*.58,ty=drum(cx,Y+w*.01,w*.2,w*(.17+.04*t),DK,false);guns(cx,ty,w*.2,Math.max(1.6,w*.032),1,A.ang,rec*wd*.8)})}
+    /* 本体の円筒とその上の砲塔 */
+    var yt=drum(X,Y,bw,bh,null,true);ctx.fillStyle="#23242b";for(i=-1;i<=1;i++)ctx.fillRect(X+i*bw*.27-bw*.03,yt+bh*.1,bw*.06,bh*.2);
+    var tw=bw*.64,th=bh*.5,tt=drum(X,yt+bw*.04,tw,th,t>=3?GD:"#6e727e",false);
+    ctx.fillStyle="#3a3c45";ctx.beginPath();ctx.ellipse(X-tw*.2,tt,tw*.1,tw*.04,0,0,7);ctx.fill();
+    if(t>=2){var fp=X+tw*.38;ctx.strokeStyle=LN;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(fp,tt);ctx.lineTo(fp,tt-w*.3);ctx.stroke();ctx.lineWidth=1;P([fp,tt-w*.3,fp+w*.17,tt-w*.26+Math.sin(kt*6)*1.5,fp,tt-w*.2],rc,1)}
+    guns(X,tt,L,wd,t,A.ang,rec*wd*1.6);
+    /* 損傷：煙と炎、耐久バー */
+    if(f.hp<1){var ty2=tt-w*.12;
+      if(f.hp<.55)for(i=0;i<3;i++){var ph2=(kt*.5+i/3)%1;ctx.fillStyle="rgba(60,60,66,"+.4*(1-ph2)+")";ctx.beginPath();ctx.arc(X-tw*.2+Math.sin(kt*2+i)*w*.05,ty2-ph2*w*.6,w*(.06+.1*ph2),0,7);ctx.fill()}
+      if(f.hp<.28){var fl=.7+.3*Math.sin(kt*14),gl2=ctx.createRadialGradient(X-tw*.2,ty2,0,X-tw*.2,ty2,w*.22);gl2.addColorStop(0,"rgba(255,190,70,"+.8*fl+")");gl2.addColorStop(1,"rgba(255,90,30,0)");ctx.fillStyle=gl2;ctx.beginPath();ctx.arc(X-tw*.2,ty2,w*.22,0,7);ctx.fill()}
+      fortBar(X,tt-w*.55,w*.8,f.hp)}
   }
 
   /* ===== 鉱山：岩山・木枠の坑口・レール・トロッコ・鉱石・巻き上げ櫓 ===== */
@@ -1396,7 +1479,7 @@ function applyOrd(us,w,ord){var l=[];
   us.forEach(function(x){x.ord=ord?{k:ord.k,c:ord.c,id:ord.id}:null;x.tt=0;var O=byId(x.o),id=O&&uidOf(O);if(id)l.push([id,x.i])});
   if(l.length)bc({t:"od",l:l,o:ord?ordWire(ord,w):null})}
 function recvOrd(m){if(!m||!m.l)return;m.l.forEach(function(e){wars.forEach(function(w){w.U.forEach(function(u){if(u.dead||u.i!==e[1])return;var O=byId(u.o);if(!O||uidOf(O)!==e[0])return;u.ord=m.o?ordUnwire(m.o,w):null;u.tt=0})})})}
-function showCmd(){var p=$("cmd");if(!usel){p.className="glass";return}p.className="glass show";var u=usel.u;
+function showCmd(){var p=$("cmd");p.removeAttribute("data-dp");if(!usel){p.className="glass";return}p.className="glass show";var u=usel.u;
   p.innerHTML='<div class="sh"><h3>'+esc(u.name)+((u.gk|0)>0?'（'+GK[u.gk|0].n+'）':'')+'</h3><button data-o="x">閉じる</button></div><div id="cmdl" class="lbl"></div>'+
   '<div class="ups"><button data-o="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-o="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-o="cty"><span class="n">属国を指定</span><span class="c">選んで占領</span></button><button data-o="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-o="ally"><span class="n">味方本土防衛</span><span class="c">陣営の本土を守る</span></button><button data-o="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-o="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-o="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
   if(vassalMe()){var ub=p.querySelector(".ups");if(ub)ub.style.display="none"}updCmd()}
@@ -1431,7 +1514,7 @@ $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
 function mySide(){if(!myObj||!myObj.founded||vassalMe())return null;var me=root(myObj),w=null,sd=0;wars.forEach(function(x){if(x.a===me.id||x.b===me.id){w=x;sd=me.id}else if(x.j&&x.j[me.id]){w=x;sd=x.j[me.id]}});if(!w)return null;
   var L=w.U.filter(function(u){if(u.dead)return false;var Q=byId(u.o);return!!Q&&root(Q)===me});L.sort(function(a,b){return a.o-b.o||a.i-b.i});return{w:w,me:me,L:L,sd:sd}}
 function dvComp(u){var f=Math.max(0,u.hp)/u.maxhp,rm=Math.max(1,Math.ceil(u.men*f)),kd=u.m==="sea"?(u.sh&&SHIP[u.sh]?SHIP[u.sh].n:"船"):u.m==="build"?"造船中":GK[u.gk|0].n;return kd+" ・ 人数 "+rm+"/"+u.men+"人 ・ 耐久 "+Math.round(f*100)+"%"}
-function openDv(){if(ordMode==="deploy"){ordMode=false;dpList=[]}["wlp","bgp","net"].forEach(function(i){$(i).classList.remove("show")});$("dvp").classList.add("show");drawDv(true)}
+function openDv(){if(ordMode==="deploy"){ordMode=false;dpList=[]}dpMap=false;hideDpb();["wlp","bgp","net"].forEach(function(i){$(i).classList.remove("show")});$("dvp").classList.add("show");drawDv(true)}
 function updDvSel(){var p=$("dvp"),n=0,t=0;[].forEach.call(p.querySelectorAll(".dvr"),function(r){var on=!!dvSel[r.getAttribute("data-k")];t++;if(on)n++;r.classList.toggle("on",on);});var c=p.querySelector(".dvn");if(c)c.textContent="選択 "+n+"/"+t}
 function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();if(!W)return;
   if(!s){if(vassalMe()){W.innerHTML='<div class="lbl"><b>師団命令</b> ／ 支配下の国は師団に命令できません。師団は宗主国（'+esc(root(myObj).name||"?")+'）が指揮します。</div>';dvSig="";return}W.innerHTML='<div class="lbl">戦争中ではありません。宣戦布告する（または宣戦布告される）と、この下に従来の「師団命令」（師団を選んで進軍先を命令）が出ます。</div>';dvSig="";return}
@@ -1443,7 +1526,22 @@ function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();
   else s.L.forEach(function(u){var k=ukey(u),a=p.querySelector('.dvt[data-k="'+k+'"]'),b=p.querySelector('.dvo[data-k="'+k+'"]');if(a)a.textContent=dvComp(u);if(b)b.textContent="命令: "+ordTxt(u,s.w)});
   updDvSel()}
 /* ===== 平時の師団配備：自国・同盟国・属国の本土、またはその周りの海域に任意で配備。開戦すると配備地点から出撃する ===== */
-var DEP_SEA=45,dpSel={},dpList=[],DPC={};
+var DEP_SEA=225,dpSel={},dpList=[],DPC={},dpMap=false;
+/* ===== マップ上の師団をタップして選択 → 「配備」ボタンで配備先をタップ ===== */
+function peaceUnitAt(p){if(!myObj||!myObj.founded)return null;var best=null,bd=18*18;peaceW().U.forEach(function(u){if(u.o!==myObj.id)return;var s=w2s([u.x,u.y]),dx=s.x-p.x,dy=s.y-p.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=u}});return best}
+function hideDpb(){var c=$("cmd");if(c.getAttribute("data-dp")){c.removeAttribute("data-dp");c.className="glass";c.innerHTML=""}}
+function showDpb(){if(usel)return;var c=$("cmd"),ks=Object.keys(dpSel).map(Number).sort(function(a,b){return a-b}),n=ks.length;
+  if(ordMode==="deploy"){c.setAttribute("data-dp","1");c.className="glass show";c.innerHTML='<div class="sh"><h3>師団を配備</h3></div><div class="lbl">配備先を地図でタップしてください（'+dpList.length+'個師団／自国・同盟国・属国の本土、またはその周りの海域）</div><div class="ups"><button data-p="dpx"><span class="n">中止</span><span class="c">選択に戻る</span></button></div>';return}
+  if(!n){hideDpb();return}
+  var o=myObj,nm=ks.map(function(i){return esc(o.name)+(i+1)}).join("・");
+  c.setAttribute("data-dp","1");c.className="glass show";
+  c.innerHTML='<div class="sh"><h3>師団を配備</h3><button data-p="dpn">閉じる</button></div><div class="lbl">選択中 <b>'+n+'</b>個師団：'+nm+'<br>地図の師団をタップで追加／解除。「配備」を押してから配備先をタップします。</div><div class="ups"><button data-p="dpg"><span class="n">配備</span><span class="c">配備先を地図でタップ</span></button><button data-p="dpc"><span class="n">配備を解除</span><span class="c">元の位置へ</span></button><button data-p="dpn"><span class="n">選択解除</span><span class="c">すべて外す</span></button></div>'}
+function dpMapTap(u){usel=null;sel=null;hsel=null;editing=false;dpAct("ds",u.i);showSheet();showDpb();render()}
+$("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-p]");if(!b||usel)return;var a=b.getAttribute("data-p");
+  if(a==="dpg"){dpMap=true;dpAct("dpg");if(ordMode!=="deploy")dpMap=false;showDpb();return}
+  if(a==="dpx"){ordMode=false;dpList=[];dpMap=false;showDpb();render();return}
+  if(a==="dpc"){dpAct("dpc");hideDpb();render();return}
+  if(a==="dpn"){dpAct("dpn");hideDpb();render();return}});
 function distPoly(pt,poly){var d=1e18,n=poly.length,i,j;for(i=0,j=n-1;i<n;j=i++){var a=poly[j],b=poly[i],vx=b[0]-a[0],vy=b[1]-a[1],l=vx*vx+vy*vy,t=l?((pt[0]-a[0])*vx+(pt[1]-a[1])*vy)/l:0;t=Math.max(0,Math.min(1,t));var dx=pt[0]-(a[0]+vx*t),dy=pt[1]-(a[1]+vy*t),dd=dx*dx+dy*dy;if(dd<d)d=dd}return Math.sqrt(d)}
 function deployChk(o,x,y){var R=root(o),L=landAt(x,y);
   if(L){if(!L.founded)return{ok:0,why:"建国されていない土地には配備できません"};var r=root(L);if(r===R||isAllied(r,R))return{ok:1,sea:0};return{ok:0,why:"配備できるのは自国・同盟国・属国の本土です"}}
@@ -1473,7 +1571,7 @@ function deployTap(p){var o=myObj,w=s2w(p),x=w[0],y=w[1];if(!o||!o.founded){ordM
     if(k>0){var a=k*2.4,rr=5*Math.sqrt(k),tx=x+Math.cos(a)*rr,ty=y+Math.sin(a)*rr,c=deployChk(o,tx,ty);if(c.ok&&!!c.sea===!!r.sea){px=tx;py=ty}}
     d.dp={x:px,y:py,sea:r.sea?1:0};n++});
   ordMode=false;dpSel={};dpList=[];dvPush();say(n+"個師団を"+(r.sea?"海域":"陸")+"に配備した。開戦すると配備地点から出撃します");
-  $("dvp").classList.add("show");dvMgSig="";drawDv(true);render()}
+  if(dpMap){dpMap=false;hideDpb()}else $("dvp").classList.add("show");dvMgSig="";drawDv(true);render()}
 var dvMgSig="";
 function dvPush(){pushT=Date.now()+300}
 function dvAct(a,i){var o=myObj;if(!o||!o.founded){say("先に国を建ててください");return}var D=dvs(o),d=D[i],pw=o.pw||0,c;
@@ -1583,12 +1681,15 @@ function warStep(w,dt){
   w.U.forEach(function(u){if(u.dead)return;var Q=byId(u.o);if(!Q||sdOf(w,Q)!==u.sd){dropUnit(w,u);if(Q&&Q.dep&&!w.U.some(function(x){return!x.dead&&x.o===Q.id})&&!wars.some(function(x){return x!==w&&x.U.some(function(y){return!y.dead&&y.o===Q.id})}))Q.dep=null}});
   [w.a,w.b].forEach(function(id){sideMem(w,id).forEach(function(m){reinf(w,m,id)})});
   var U=w.U.filter(function(u){return!u.dead}),by={};by[w.a]=[];by[w.b]=[];U.forEach(function(u){by[u.sd].push(u)});
+  var FZL={};FZL[w.a]=fortsOf(w,w.a);FZL[w.b]=fortsOf(w,w.b);
   U.forEach(function(u){
     var eid=u.sd===w.a?w.b:w.a,en=by[eid],E=byId(eid),O=byId(u.o),sea=u.m==="sea",R=sea?(u.rg||30):GK[u.gk|0].r,best=null,bd=1e9;
-    dvSync(w,u,O);u.hit=Math.max(0,u.hit-dt);u.lg=Math.max(0,(u.lg||0)-dt);u.eng=null;
+    dvSync(w,u,O);u.hit=Math.max(0,u.hit-dt);u.lg=Math.max(0,(u.lg||0)-dt);u.eng=null;u.fe=null;
     en.forEach(function(e){if((e.m==="sea")!==sea)return;var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<R&&d<bd){bd=d;best=e}});
     if(u.ord&&u.ord.k==="unit")en.forEach(function(e){if(e.id===u.ord.id&&(e.m==="sea")===sea&&Math.hypot(e.x-u.x,e.y-u.y)<R)best=e});
     if(best){u.eng=best;best.dmg+=u.dps*(.8+Math.random()*.4)*dt*homeB(u)/homeB(best);best.last=u;u.hit=.3;fxFire(u,best);return}
+    var fb=null,fd=1e9;FZL[eid].forEach(function(e){if(!fortOn(e.f))return;var d=Math.hypot(e.f.x-u.x,e.f.y-u.y);if(d<R&&d<fd){fd=d;fb=e}});
+    if(fb){u.fe=[fb.f.x,fb.f.y];u.hit=.3;fortHit(fb.o,fb.f,u.dps*(.8+Math.random()*.4)*dt*homeB(u)/(1+castleB(fb.o))/fortMaxHp(fb.o,fb.f),w,u.name);fxFire(u,{x:fb.f.x,y:fb.f.y,m:"land"});return}
     u.tt-=dt;if(u.tt<=0||!u.tg||u.tg.dead){u.tt=.5;u.tg=pick(w,u,en,eid)}
     /* 固まり防止：4秒たっても動けていなければ、味方の住民のいる所へ一旦迂回してから再び目標へ */
     u.sk=(u.sk||0)+dt;if(u.sk>=4){if(u.sx!=null&&!u.eng&&u.m==="land"&&u.tg&&!(u.esc>0)&&Math.hypot(u.tg.x-u.x,u.tg.y-u.y)>=3&&Math.hypot(u.x-u.sx,u.y-u.sy)<3){var PP=sidePeople(u.sd);if(PP.length){var DD=PP[Math.floor(Math.random()*PP.length)];u.esc=4;u.et={x:DD.x,y:DD.y}}}u.sx=u.x;u.sy=u.y;u.sk=0}
@@ -1596,12 +1697,19 @@ function warStep(w,dt){
     if(u.m==="build"){fxBuild(u);u.bt+=dt;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;setShip(u,shipOf(O,u.i));wl(w,u.name+"が"+SHIP[u.sh].n+"で出港","sea")}return}
     if(!u.tg)return;var tx=u.tg.x,ty=u.tg.y;if(Math.hypot(tx-u.x,ty-u.y)<3)return;
     var sp=w.sp*(sea?(u.spf||1.5):GK[u.gk|0].s)*.5*dt,a=Math.atan2(ty-u.y,tx-u.x),nx=u.x+Math.cos(a)*sp,ny=u.y+Math.sin(a)*sp;
-    if(sea){u.x=nx;u.y=ny;fxWake(u);var ld=landAt(nx,ny);if(!ld){u.sw=true;if(u.tg.m!=="sea"&&Math.hypot(tx-nx,ty-ny)<18){u.m="land";u.sw=false;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+E.name+"の海岸に上陸","land")}}else if(u.sw&&root(ld)!==root(O)){u.m="land";u.sw=false;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+(root(ld)===root(E)?E.name+"に":"")+"上陸","land")}}
+    if(sea){u.x=nx;u.y=ny;fxWake(u);var ld=landAt(nx,ny);if(!ld){u.sw=true;if(u.tg.m!=="sea"&&Math.hypot(tx-nx,ty-ny)<18){u.m="land";u.sw=false;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+E.name+"の海岸に上陸","land")}}else if(ld&&(u.sw||(u.lt=(u.lt||0)+dt)>5)){u.m="land";u.sw=false;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+(root(ld)===root(E)?E.name+"に":"")+"上陸","land")}else if(!ld)u.lt=0}
     else if(landAt(nx,ny)){u.x=nx;u.y=ny;u.lg=0;if((u.gk|0)>=2)fxDust(u)}
     else if(u.lg>0){u.x=nx;u.y=ny}
     else if(O.civ>=3){u.m="build";u.bt=0;wl(w,u.name+"が海岸で造船を開始（文明Lv"+O.civ+"）","sea")}
     else{var of=[.4,-.4,.8,-.8,1.2,-1.2,1.6,-1.6,2.1,-2.1,2.6,-2.6,3.14],bj=-1,bdd=1e9,st=Math.max(sp,1.5);for(var j=0;j<of.length;j++){var mx=u.x+Math.cos(a+of[j])*st,my=u.y+Math.sin(a+of[j])*st;if(landAt(mx,my)){var dd=Math.hypot(tx-mx,ty-my);if(dd<bdd){bdd=dd;bj=j}}}if(bj>=0){u.x+=Math.cos(a+of[bj])*st;u.y+=Math.sin(a+of[bj])*st}}
   });
+  /* 要塞の砲撃：射程内でいちばん近い敵師団（陸・海とも）を撃つ */
+  w.fz=[];
+  [w.a,w.b].forEach(function(id){var en2=by[id===w.a?w.b:w.a];FZL[id].forEach(function(e){var f=e.f;if(!fortOn(f))return;var R2=fortR(f),bu=null,bd2=1e9;
+    en2.forEach(function(x){var d=Math.hypot(x.x-f.x,x.y-f.y);if(d<R2&&d<bd2){bd2=d;bu=x}});
+    if(!bu)return;
+    bu.dmg+=fortDps(e.o,f)*(.8+Math.random()*.4)*dt*(1+castleB(e.o))/homeB(bu);bu.last={name:e.o.name+"の要塞"};
+    fzFire(f.x,f.y,fLv(f),bu.x,bu.y,bu.m==="sea");w.fz.push([r2(f.x),r2(f.y),r2(bu.x),r2(bu.y),bu.m==="sea"?1:0,fLv(f)])})});
   U.forEach(function(u){if(u.dmg){u.hp-=u.dmg;u.dmg=0}});
   U.forEach(function(u){if(u.hp>0||u.dead)return;u.dead=true;fxBoom(u);w.lost[u.sd]+=(u.m==="sea"?.5:1);var O=byId(u.o),k=u.last;loss(O,u,u.men);if(O.dep)O.dep[u.i]=false;dvKill(O,u.i);
     wl(w,(k?k.name+"が":"")+u.name+"を"+(u.m==="sea"?"海戦で撃沈":"陸戦で撃破"),u.m==="sea"?"sea":"land")});
@@ -1729,23 +1837,26 @@ function drawSquad(u,s,c){
   ctx.restore()}
 /* 平時の師団：戦争が無くても、出撃していない師団を国内の兵士の位置にマーカーとして常時表示する（描画専用の擬似ユニット） */
 var PUC={};
-function peaceW(){var U=[],seen={};
+function peaceW(){var U=[],seen={},inWar={};/* 戦場にいる師団は平時用の表示から除く（参加側の端末は o.dep を持たないため、実際の戦場の師団で判定する） */wars.forEach(function(w){w.U.forEach(function(u){if(!u.dead)inWar[u.o+"_"+u.i]=1})});
   objs.forEach(function(o){if(!o.founded||!o.people||o.wipe)return;var D=dvs(o),dep=o.dep||{},by={};
     o.people.forEach(function(q){if(q.s&&q.d!=null)(by[q.d]=by[q.d]||[]).push(q)});
-    for(var i=0;i<D.length;i++){if(D[i].x||dep[i]||!by[i])continue;
+    for(var i=0;i<D.length;i++){if(D[i].x||dep[i]||inWar[o.id+"_"+i]||!by[i])continue;
       var M=by[i],Lq=M.filter(function(q){return q.L})[0]||M[0],k=o.id+"_"+i,u=PUC[k];
       if(!u)u=PUC[k]={id:o.id*1000+i,o:o.id,i:i,sd:o.id,m:"land",sh:null,eng:null,tg:null,dead:false,hit:0,ord:null};
-      u.name=o.name+(i+1);u.x=Lq.x;u.y=Lq.y;u.m="land";u.sh=null;var dp0=depStart(o,i);if(dp0){u.x=dp0.x;u.y=dp0.y;if(dp0.sea){u.m="sea";u.sh=shipOf(o,i)}}u.men=M.length;u.hp=1;u.maxhp=1;u.gk=gkOf(o,i);u.tk=u.gk===3;
+      u.name=o.name+(i+1);var dp0=depStart(o,i),nw=Date.now(),pdt=u.pt?Math.min(.25,(nw-u.pt)/1000):0;u.pt=nw;/* 配備地点へは瞬間移動せず、戦争の進軍のように歩いて向かう（青い線） */
+      var tx=dp0?dp0.x:Lq.x,ty=dp0?dp0.y:Lq.y;if(u.x==null||(!dp0&&Math.hypot(tx-u.x,ty-u.y)<4)){u.x=tx;u.y=ty}
+      var ddx=tx-u.x,ddy=ty-u.y,ddd=Math.hypot(ddx,ddy);if(ddd>.5){var stp=Math.min(ddd,12*GK[gkOf(o,i)|0].s*Math.max(1,speed)*pdt);u.x+=ddx/ddd*stp;u.y+=ddy/ddd*stp;ddd-=stp}
+      u.pm=ddd>.5;u.tg=u.pm?{x:tx,y:ty}:null;u.m=(dp0&&dp0.sea&&!u.pm)?"sea":"land";u.sh=u.m==="sea"?shipOf(o,i):null;u.men=M.length;u.hp=1;u.maxhp=1;u.gk=gkOf(o,i);u.tk=u.gk===3;
       seen[k]=1;U.push(u)}});
   Object.keys(PUC).forEach(function(k){if(!seen[k])delete PUC[k]});
   return{U:U}}
 function drawWar(){wars.concat([peaceW()]).forEach(function(w){
   var cl=function(u){var o=byId(u.o);return o?effU(o):"#888"};
-  w.U.forEach(function(u){if(u.dead)return;var t=u.eng||u.tg;if(!t)return;var s=w2s([u.x,u.y]),e=w2s([t.x,t.y]),c=cl(u),a=Math.atan2(e.y-s.y,e.x-s.x),col=u.eng?"#e5484d":u.ord?"#f5a524":shade(c,.55);
+  w.U.forEach(function(u){if(u.dead)return;var t=u.eng||u.tg;if(!t)return;var s=w2s([u.x,u.y]),e=w2s([t.x,t.y]),c=cl(u),a=Math.atan2(e.y-s.y,e.x-s.x),col=u.eng?"#e5484d":u.pm?"#2f7bff":u.ord?"#f5a524":shade(c,.55);
     ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(e.x,e.y);ctx.strokeStyle=col;ctx.lineWidth=u.eng?2.5:1.6;ctx.setLineDash(u.eng?[]:[6,4]);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x-9*Math.cos(a-.4),e.y-9*Math.sin(a-.4));ctx.lineTo(e.x-9*Math.cos(a+.4),e.y-9*Math.sin(a+.4));ctx.closePath();ctx.fillStyle=col;ctx.fill()});
   w.U.forEach(function(u){if(u.dead)return;var s=w2s([u.x,u.y]);if(s.x<-160||s.x>cw+160||s.y<-160||s.y>chh+160)return;var c=cl(u),dk=shade(c,.4);ctx.lineWidth=2;ctx.strokeStyle=dk;ctx.fillStyle=c;
-    if(usel&&usel.u===u){ctx.beginPath();ctx.arc(s.x,s.y,19,0,7);ctx.strokeStyle=ACC;ctx.lineWidth=3;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=2;ctx.strokeStyle=dk}
+    if((usel&&usel.u===u)||(myObj&&u.o===myObj.id&&dpSel[u.i]&&PUC[u.o+"_"+u.i]===u)){ctx.beginPath();ctx.arc(s.x,s.y,19,0,7);ctx.strokeStyle=ACC;ctx.lineWidth=3;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=2;ctx.strokeStyle=dk}
     if(u.hit>0&&!LITE){ctx.beginPath();ctx.arc(s.x,s.y,9+(.3-u.hit)*50,0,7);ctx.strokeStyle="rgba(229,72,77,"+u.hit*3+")";ctx.stroke();ctx.strokeStyle=dk}
     if(LITE){liteU(s,u,c,dk)}
     else if(u.m==="sea"){drawShip(s,u)}
@@ -1782,12 +1893,13 @@ function cost(l){return 20+10*l}
 var UP=[["civ","文明"],["mil","軍事力"],["edu","教育"]];
 function pwHTML(o,p){p=p||"";var h='<div class="gauge"><u id="gu'+p+'"></u><span id="gt'+p+'"></span></div><div class="grp"><div class="ups">';
   UP.forEach(function(u){h+='<button data-a="up" data-k="'+u[0]+'" id="b-'+u[0]+p+'"><span class="n">'+u[1]+'</span><span class="l"></span><span class="c"></span></button>'});
-  return h+'</div></div><div class="ups"><button data-a="build" id="b-house'+p+'"><span class="n">家を建てる</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="f" id="b-farm'+p+'"><span class="n">農地を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="m" id="b-mine'+p+'"><span class="n">鉱山を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="c" id="b-castle'+p+'"><span class="n">城を建てる</span><span class="l"></span><span class="c"></span></button></div><div class="ups rt"><button data-a="reno" id="b-reno'+p+'"><span class="n">改築</span><span class="l"></span><span class="c"></span></button><button data-a="mv" id="b-mv'+p+'"><span class="n">移動</span><span class="l"></span><span class="c"></span></button><button data-a="auto" id="b-auto'+p+'"><span class="n">自動建築改築</span><span class="l"></span><span class="c"></span></button></div>'}
+  return h+'</div></div><div class="ups"><button data-a="build" id="b-house'+p+'"><span class="n">家を建てる</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="f" id="b-farm'+p+'"><span class="n">農地を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="m" id="b-mine'+p+'"><span class="n">鉱山を作る</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="c" id="b-castle'+p+'"><span class="n">城を建てる</span><span class="l"></span><span class="c"></span></button><button data-a="fbuild" data-k="fo" id="b-fort'+p+'"><span class="n">要塞を建てる</span><span class="l"></span><span class="c"></span></button></div><div class="ups rt"><button data-a="reno" id="b-reno'+p+'"><span class="n">改築</span><span class="l"></span><span class="c"></span></button><button data-a="mv" id="b-mv'+p+'"><span class="n">移動</span><span class="l"></span><span class="c"></span></button><button data-a="auto" id="b-auto'+p+'"><span class="n">自動建築改築</span><span class="l"></span><span class="c"></span></button></div>'}
 function updHouseBtns(o,p){p=p||"";var H=o.houses||[],b=$("b-house"+p),r=$("b-reno"+p),a=$("b-auto"+p),hs=selObj(o);
   if(b){var mx=!canBuild(o),c=bCost(o);b.querySelector(".l").textContent=H.length+" / "+houseCap(o);b.querySelector(".c").textContent=mx?"上限（文明Lvで増加）":"消費 "+c;b.disabled=mx||o.pw<c}
-  [["f","b-farm"],["m","b-mine"],["c","b-castle"]].forEach(function(e){var fb=$(e[1]+p);if(!fb)return;var t=e[0],mx2=!fCanBuild(o,t),fc=fCost(o,t);fb.querySelector(".l").textContent=facs(o,t).length+" / "+FT[t].cap(o);fb.querySelector(".c").textContent=mx2?"上限（文明Lvで増加）":"消費 "+fc;fb.disabled=mx2||o.pw<fc});
-  if(r){var l=r.querySelector(".l"),c2=r.querySelector(".c");if(!hs){l.textContent="—";c2.textContent="家・農地・鉱山・城をタップ";r.disabled=true}
-    else{var lv=Math.floor(hs.lv);l.textContent=selName(hs)+" Lv"+lv+(lv<(hs.t==="c"?3:10)?" → "+(lv+1):"");if(hs.b<1){c2.textContent="建築中";r.disabled=true}else if(lv>=(hs.t==="c"?3:10)){c2.textContent="MAX";r.disabled=true}else if(hs.t==="c"?lv>=castleMax(o):lv>=(o.civ||1)){c2.textContent=hs.t==="c"?"文明Lv"+(lv<2?6:9)+"が必要":"文明Lvが必要";r.disabled=true}else{var rc=upCost(hs);c2.textContent="消費 "+rc;r.disabled=o.pw<rc}}}
+  [["f","b-farm"],["m","b-mine"],["c","b-castle"],["fo","b-fort"]].forEach(function(e){var fb=$(e[1]+p);if(!fb)return;var t=e[0],mx2=!fCanBuild(o,t),fc=fCost(o,t);fb.querySelector(".l").textContent=facs(o,t).length+" / "+FT[t].cap(o);fb.querySelector(".c").textContent=mx2?"上限（文明Lvで増加）":"消費 "+fc;fb.disabled=mx2||o.pw<fc});
+  if(r){var l=r.querySelector(".l"),c2=r.querySelector(".c"),nn=r.querySelector(".n");if(nn)nn.textContent=(hs&&hs.t==="fo"&&hs.ds)?"再建築":"改築";if(!hs){l.textContent="—";c2.textContent="家・農地・鉱山・城・要塞をタップ";r.disabled=true}
+    else if(hs.t==="fo"&&hs.ds){var rr=fortRe(hs);l.textContent="要塞（破壊）";c2.textContent="再建築 消費 "+rr+"（1分）";r.disabled=o.pw<rr}
+    else{var lv=Math.floor(hs.lv),L3=hs.t==="c"||hs.t==="fo";l.textContent=selName(hs)+" Lv"+lv+(lv<(L3?3:10)?" → "+(lv+1):"");if(hs.b<1){c2.textContent=hs.rb?"再建築中":"建築中";r.disabled=true}else if(lv>=(L3?3:10)){c2.textContent="MAX";r.disabled=true}else if(L3?lv>=castleMax(o):lv>=(o.civ||1)){c2.textContent=L3?"文明Lv"+(lv<2?6:9)+"が必要":"文明Lvが必要";r.disabled=true}else{var rc=upCost(hs);c2.textContent="消費 "+rc;r.disabled=o.pw<rc}}}
   if(a){a.querySelector(".l").textContent=o.auto?"ON":"OFF";a.querySelector(".c").textContent="建築・改築を自動で"}
   var mv=$("b-mv"+p);if(mv){var ml=mv.querySelector(".l"),mc2=mv.querySelector(".c");if(!hs){hmv=false;mv.disabled=true;mv.classList.remove("mvon");ml.textContent="—";mc2.textContent="構造物をタップして選択"}else{mv.disabled=false;mv.classList.toggle("mvon",hmv);ml.textContent=selName(hs);mc2.textContent=hmv?"移動先をタップ":"押して移動先を選ぶ"}}}
 function updPw(o,p){p=p||"";var g=$("gu"+p);if(!g)return;g.style.width=(o.pw/2)+"%";$("gt"+p).textContent="国力 "+Math.floor(o.pw)+" / 200";
@@ -1904,7 +2016,9 @@ function tap(p){
   if(ordMode){orderTap(p);return}
   var uu=pickMode?null:unitAt(p);
   if(uu){usel=uu;sel=null;hsel=null;editing=false;showSheet();showCmd();render();return}
+  if(!pickMode){var pu=peaceUnitAt(p);if(pu){dpMapTap(pu);return}}
   if(usel)closeCmd();
+  if($("cmd").getAttribute("data-dp")&&ordMode!=="deploy"){dpSel={};hideDpb();dvMgSig=""}
   var hh=pickMode?null:houseAt(p);
   if(hh){hsel=hh.h;sel=hh.o;lastTap={t:Date.now(),x:p.x,y:p.y,o:hh.o};editing=false;showSheet();render();return}
   hsel=null;
@@ -1943,7 +2057,7 @@ sheet.addEventListener("click",function(e){
   else if(a==="dc"){if(t[0].length>1)t.forEach(function(r){r.pop()})}
   else if(a==="up"){var uk=bt.getAttribute("data-k"),uc=cost(sel[uk]);if(sel[uk]<10&&sel.pw>=uc){sel.pw-=uc;sel[uk]++;say(""+sel.name+"の"+({civ:"文明",mil:"軍事力",edu:"教育"})[uk]+"が Lv"+sel[uk]+" に上がった")}}
   else if(a==="build"){var bc=bCost(sel);if(sel.founded&&canBuild(sel)&&sel.pw>=bc){sel.pw-=bc;addHouse(sel,0);say(""+sel.name+"で新しい家の建築が始まった")}}
-  else if(a==="reno"){var hs=selObj(sel);if(canReno(sel,hs)){var rc=upCost(hs);if(sel.pw>=rc){sel.pw-=rc;hs.lv=Math.floor(hs.lv)+1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(selName(hs)+"がLv"+hs.lv+"に改築された")}}}
+  else if(a==="reno"){renoAct(sel)}
   else if(a==="fbuild"){var ft=bt.getAttribute("data-k"),fc=fCost(sel,ft);if(sel.founded&&fCanBuild(sel,ft)&&sel.pw>=fc){sel.pw-=fc;addFac(sel,ft,0);say(sel.name+"で"+FT[ft].n+"の建設が始まった")}}
   else if(a==="mv"){mvToggle(sel)}
   else if(a==="auto"){sel.auto=!sel.auto;say(sel.auto?""+sel.name+"は家を自動で建築・改築する":""+sel.name+"の家は手動で建築・改築")}
@@ -1972,7 +2086,7 @@ function updMine(){var p=$("mine"),o=myObj;
 $("mine").addEventListener("click",function(e){var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a"),o=myObj;if(!a||!o||!o.founded)return;
   if(a==="up"){var uk=bt.getAttribute("data-k"),uc=cost(o[uk]);if(o[uk]<10&&o.pw>=uc){o.pw-=uc;o[uk]++;say(""+o.name+"の"+({civ:"文明",mil:"軍事力",edu:"教育"})[uk]+"が Lv"+o[uk]+" に上がった")}}
   else if(a==="build"){var bc2=bCost(o);if(canBuild(o)&&o.pw>=bc2){o.pw-=bc2;addHouse(o,0);say(""+o.name+"で新しい家の建築が始まった")}}
-  else if(a==="reno"){var hs=selObj(o);if(canReno(o,hs)){var rc=upCost(hs);if(o.pw>=rc){o.pw-=rc;hs.lv=Math.floor(hs.lv)+1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(selName(hs)+"がLv"+hs.lv+"に改築された")}}}
+  else if(a==="reno"){renoAct(o)}
   else if(a==="fbuild"){var ft=bt.getAttribute("data-k"),fc=fCost(o,ft);if(fCanBuild(o,ft)&&o.pw>=fc){o.pw-=fc;addFac(o,ft,0);say(o.name+"で"+FT[ft].n+"の建設が始まった")}}
   else if(a==="mv"){mvToggle(o)}
   else if(a==="auto"){o.auto=!o.auto;say(o.auto?""+o.name+"は家を自動で建築・改築する":""+o.name+"の家は手動で建築・改築")}
@@ -2041,18 +2155,19 @@ function onNet(m,dc){
   else if(m.t==="L"){if(!isHost){wlog.push({t:m.x,m:m.m,k:m.k});if(wlog.length>400)wlog.shift();drawWl()}}
   else if(m.t==="dk"){if(m.u===myUid&&myObj){var dd=dvs(myObj)[m.i];if(dd&&(dd.e||0)===m.e){dd.x=true;delete dd.dp;pushT=Date.now()+300}}}
   else if(m.t==="ls"){if(m.u===myUid&&myObj)loss(myObj,{i:m.i},m.n)}
+  else if(m.t==="fd"){if(m.u===myUid&&myObj){var ff=(myObj.fac||[])[m.i];if(ff&&fortOn(ff)){ff.hp=Math.max(0,ff.hp-m.d);if(ff.hp<=0)fortBreak(myObj,ff);pushT=Date.now()+300}}}
   else if(m.t==="wp"){if(m.u===myUid&&myObj&&m.p<myObj.pop)myObj.pop=Math.max(2,m.p)}
   else if(m.t==="wo"){if(m.u===myUid&&myObj){myObj.pop=2;myObj.people=[];myObj.pend=[]}}}
 /* ===== 戦争の同期：ホストだけが戦争を計算し、結果を全員に配る ===== */
 var wT=0;
 function r2(x){return Math.round(x*100)/100}
 function serU(u){var o={};Object.keys(u).forEach(function(k){if(k==="tg"||k==="eng"||k==="last"||k==="fxN"||k==="wkN"||k==="dsN"||k==="bdN")return;var v=u[k];if(typeof v==="number")o[k]=r2(v);else if(v===null||typeof v==="string"||typeof v==="boolean")o[k]=v;else if(k==="ord")o.ord=v?{k:v.k,c:v.c,id:v.id}:null});
-  o.e=u.eng?u.eng.id:null;o.g=u.tg?[r2(u.tg.x),r2(u.tg.y)]:null;return o}
+  o.e=u.eng?u.eng.id:null;o.fe=u.fe?[r2(u.fe[0]),r2(u.fe[1])]:null;o.g=u.tg?[r2(u.tg.x),r2(u.tg.y)]:null;return o}
 function encPz(z,w){var out="",run=0,prev=null,i,c;for(i=0;i<z.own.length;i++){var v=z.own[i];c=v===0?".":v===w.a?"a":v===w.b?"b":"x";if(c===prev)run++;else{if(prev!==null)out+=run+prev;prev=c;run=1}}if(prev!==null)out+=run+prev;return out}
 function decPz(z,str,w){var re=/(\d+)(.)/g,mm,n=0;while((mm=re.exec(str))){var c=mm[2],v=c==="a"?w.a:c==="b"?w.b:0,len=+mm[1];for(var j=0;j<len&&n<z.own.length;j++)z.own[n++]=v}}
 function serWar(w){var k=key(w.a,w.b),p=[];members(byId(w.a)).concat(members(byId(w.b))).forEach(function(m){if(m.pz&&m.pz.k===k)p.push({i:m.id,s:encPz(m.pz,w)})});
-  return{a:w.a,b:w.b,t:r2(w.t),nid:w.nid,land:w.land,sp:w.sp,d0:w.d0,lost:w.lost,n0:w.n0,oc:w.oc||{},ms:w.ms||{},j:w.j||{},U:w.U.map(serU),p:p}}
-function netTick(t){if(!isHost||!peers.length)return;var iv=wars.length?125:1000;if(t-wT<iv)return;wT=t;
+  return{a:w.a,b:w.b,t:r2(w.t),nid:w.nid,land:w.land,sp:w.sp,d0:w.d0,lost:w.lost,n0:w.n0,oc:w.oc||{},ms:w.ms||{},j:w.j||{},fz:w.fz||[],U:w.U.map(serU),p:p}}
+function netTick(t){if(!isHost||!peers.length)return;var iv=wars.length?125:1000;if(t-wT<iv)return;wT=t;fdFlush();
   var wp=[];objs.forEach(function(o){if(o.founded&&o.wipe&&!o.mine&&o.uid)wp.push({u:o.uid,p:Math.floor(o.pop)})});
   bc({t:"W",w:wars.map(serWar),r:objs.filter(function(o){return o.founded}).map(function(o){return[o.id,o.ruler||0]}),al:Object.keys(allies)});
   wp.forEach(function(x){bc({t:"wp",u:x.u,p:x.p})})}
@@ -2062,7 +2177,7 @@ function applyW(m){var seen={};
     if(!w){w={a:sw.a,b:sw.b,t:0,U:[],nid:0,land:sw.land};wars.push(w);if(!wlOpened){wlOpened=true;$("bgp").classList.remove("show");$("wlp").classList.add("show")}
       if(myObj&&myObj.founded){var mr2=root(myObj);if(mr2&&!myObj.ruler&&(mr2.id===w.a||mr2.id===w.b))openDv()}}
     var nj=sw.j||{};Object.keys(nj).forEach(function(k){if(!(w.j&&w.j[k])){var JR=byId(+k);if(JR&&JR===myObj)openDv();else if(JR)say(""+JR.name+"が参戦しました")}});
-    ["t","nid","land","sp","d0","lost","n0","oc","ms","j"].forEach(function(f){if(sw[f]!==undefined)w[f]=sw[f]});
+    ["t","nid","land","sp","d0","lost","n0","oc","ms","j","fz"].forEach(function(f){if(sw[f]!==undefined)w[f]=sw[f]});
     var old={};w.U.forEach(function(u){old[u.id]=u});var nu=[],byid={};
     sw.U.forEach(function(s2){var u=old[s2.id],fresh=!u;if(!u)u={};var wasDead=!!u.dead;Object.keys(s2).forEach(function(f){if(f==="e"||f==="g"||f==="x"||f==="y"||f==="fxN"||f==="wkN"||f==="dsN"||f==="bdN")return;u[f]=s2[f]});if(!fresh&&!wasDead&&u.dead&&u.x!=null)fxBoom(u);
       u.nx=s2.x;u.ny=s2.y;if(fresh||u.x==null){u.x=s2.x;u.y=s2.y}nu.push(u);byid[u.id]=u});
@@ -2073,7 +2188,7 @@ function applyW(m){var seen={};
   (m.r||[]).forEach(function(e){var o=byId(e[0]);if(o&&o.founded)o.ruler=e[1]||null});
   if(m.al){var na={};m.al.forEach(function(k){na[k]=1});allies=na}}
 /* 参加側の端末は戦争を計算しないので、同期された状態から攻撃・移動エフェクトをここで出す */
-function guestFx(){if(isHost||!peers.length)return;wars.forEach(function(w){w.U.forEach(function(u){if(u.dead||u.x==null)return;if(u.eng&&!u.eng.dead)fxFire(u,u.eng);if(u.m==="sea")fxWake(u);else if(u.m==="build")fxBuild(u);else if((u.gk|0)>=2&&u.nx!=null&&Math.hypot(u.nx-u.x,u.ny-u.y)>1.5)fxDust(u)})})}
+function guestFx(){if(isHost||!peers.length)return;wars.forEach(function(w){(w.fz||[]).forEach(function(z){fzFire(z[0],z[1],z[5],z[2],z[3],!!z[4])});w.U.forEach(function(u){if(u.dead||u.x==null)return;if(u.eng&&!u.eng.dead)fxFire(u,u.eng);else if(u.fe)fxFire(u,{x:u.fe[0],y:u.fe[1],m:"land"});if(u.m==="sea")fxWake(u);else if(u.m==="build")fxBuild(u);else if((u.gk|0)>=2&&u.nx!=null&&Math.hypot(u.nx-u.x,u.ny-u.y)>1.5)fxDust(u)})})}
 function smoothW(dt){if(isHost||!peers.length)return;var f=Math.min(1,dt*10);wars.forEach(function(w){w.U.forEach(function(u){if(u.nx!=null&&!u.dead){u.x+=(u.nx-u.x)*f;u.y+=(u.ny-u.y)*f}})})}
 function netUI(){var h='<h4>接続 <button id="nx">閉じる</button></h4><div class="lbl">つながっている人：'+peers.length+'人 ／ 1端末1国（端末IDで管理）</div>';
   if(ns.m==="home"){
