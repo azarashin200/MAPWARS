@@ -1422,7 +1422,7 @@ $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   else if(a==="home"){applyOrd(one,w,{k:"home"});ordMode=false;say(""+u.name+"が相手本土へ進軍する")}
   else if(a==="cty"){if(!hasVas(w,u)){say("相手に支配国がありません");return}ordMode=false;vpkOpen(one,w,false);updCmd();return}
   else if(a==="vas"){if(!hasVas(w,u)){say("相手に支配国がありません");return}applyOrd(one,w,{k:"vas"});ordMode=false;say(""+u.name+"が相手の支配国へ進軍する")}
-  else if(a==="ally"){if(allyList(w,u).length>1){ordMode=false;vpkOpen(one,w,false,"ally");updCmd();return}applyOrd(one,w,{k:"ally"});ordMode=false;say(""+u.name+"が味方の本土を防衛する")}
+  else if(a==="ally"){if(sideNations(w,u).length>1){ordMode=false;vpkOpen(one,w,false,"ally");updCmd();return}applyOrd(one,w,{k:"ally"});ordMode=false;say(""+u.name+"が味方の本土を防衛する")}
   else if(a==="def"){applyOrd(one,w,{k:"def"});ordMode=false;say(""+u.name+"は自国を防衛する")}
   else if(a==="unit"){ordMode=ordMode==="unit"?false:"unit";if(ordMode)say("標的にする敵の師団をタップ")}
   else if(a==="auto"){applyOrd(one,w,{k:"auto"});ordMode=false;say(""+u.name+"は自動で行動する")}
@@ -1522,7 +1522,7 @@ $("dvp").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   else if(a==="home"){applyOrd(us,s.w,{k:"home"});dvSel={};say(""+ordWho(us)+"が相手本土へ進軍")}
   else if(a==="cty"){if(!hasVas(s.w,us[0])){say("相手に支配国がありません");return}vpkOpen(us,s.w,true);return}
   else if(a==="vas"){if(!hasVas(s.w,us[0])){say("相手に支配国がありません");return}applyOrd(us,s.w,{k:"vas"});dvSel={};say(""+ordWho(us)+"が相手の支配国へ進軍")}
-  else if(a==="ally"){if(allyList(s.w,us[0]).length>1){vpkOpen(us,s.w,true,"ally");return}applyOrd(us,s.w,{k:"ally"});dvSel={};say(""+ordWho(us)+"が味方の本土を防衛")}
+  else if(a==="ally"){if(sideNations(s.w,us[0]).length>1){vpkOpen(us,s.w,true,"ally");return}applyOrd(us,s.w,{k:"ally"});dvSel={};say(""+ordWho(us)+"が味方の本土を防衛")}
   else if(a==="def"){applyOrd(us,s.w,{k:"def"});dvSel={};say(""+ordWho(us)+"が自国を防衛")}
   else if(a==="unit"){closeCmd();bulk=us;bulkW=s.w;ordMode="unit";$("dvp").classList.remove("show");say("標的にする敵の師団をタップ（"+ordWho(us)+"）");render();return}
   drawDv(true)});
@@ -1532,7 +1532,7 @@ $("dvb").addEventListener("click",function(){if($("dvp").classList.contains("sho
 var vpkCtx=null;
 function vpkClose(){var e=$("vpk");if(e)e.remove();vpkCtx=null}
 function vpkOpen(us,w,fromDv,mode){vpkClose();us=us.filter(function(x){return!x.dead});if(!us.length)return;var u0=us[0],E=byId(u0.sd===w.a?w.b:w.a);if(!E)return;
-  var L,ttl,tagf;if(mode==="ally"){L=allyList(w,u0);ttl="守る味方の本土を選ぶ";tagf=function(m){return m.id===u0.sd?"本国":"参戦同盟国"}}
+  var L,ttl,tagf;if(mode==="ally"){L=sideNations(w,u0);ttl="守る味方の本土を選ぶ";tagf=function(m){return m.id===u0.sd?"本国":"参戦同盟国"}}
   else{L=members(E).filter(function(m){return m.id!==E.id});ttl="進軍先の属国を選ぶ";tagf=function(m){return m.bot?"BOT属国":"属国"}}
   if(!L.length){say("相手に支配国がありません");return}
   var d=document.createElement("div");d.id="vpk";d.className="glass";d.style.cssText="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;width:min(340px,92vw);max-height:70vh;overflow:auto;padding:12px;box-sizing:border-box";
@@ -1544,7 +1544,7 @@ document.addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   var C=byId(+v),us=c.us.filter(function(x){return!x.dead});vpkClose();if(!C||!us.length){say("その国には進軍できません");return}
   if(c.mode==="ally"){applyOrd(us,c.w,{k:"ally",c:C.id});say(""+ordWho(us)+"が"+(C.name||"味方")+"の本土を防衛")}else{applyOrd(us,c.w,{k:"home",c:C.id});say(""+ordWho(us)+"が"+(C.name||"属国")+"へ進軍")}if(c.dv){dvSel={};drawDv(true)}updCmd();render()});
 /* 味方本土防衛：陣営の本土（宗主国と属国）の中で、敵に最も近い住民のいる所へ陣取る。参戦した同盟国の師団が、味方（宗主国）の本土を守るための命令 */
-function allyList(w,u){var r=byId(u.sd),L=r?[r]:[];Object.keys(w.j||{}).forEach(function(k){if(w.j[k]===u.sd){var R=byId(+k);if(R&&L.indexOf(R)<0)L.push(R)}});return L}
+function sideNations(w,u){var r=byId(u.sd),L=r?[r]:[];Object.keys(w.j||{}).forEach(function(k){if(w.j[k]===u.sd){var R=byId(+k);if(R&&L.indexOf(R)<0)L.push(R)}});return L}
 function allyTgt(u){var od=u.ord,C=od&&od.c!=null?byId(od.c):null;return C&&C.founded?C:byId(u.sd)}
 function allyPost(w,u,en){var od=u.ord;
   if(od.px==null||od.pt==null||w.t-od.pt>6){var SR=allyTgt(u),P=[];members(SR).forEach(function(m){(m.people||[]).forEach(function(q){P.push(q)})});
