@@ -954,7 +954,7 @@ function proposeCease(){var w=myWar();if(!w||myProp)return;var B=byId(w.a===myOb
   if(bot){if(isHost||!peers.length){w.cf=true;say(""+B.name+"は停戦提案を受け入れた")}else{myProp={t:Date.now()};say(""+B.name+"に停戦を提案しました");bc({t:"cp",a:ua,b:ub})}return}
   var m={t:"cp",a:ua,b:ub||ua};if(!ub){say("相手に停戦を提案しました");if(isHost||!peers.length)w.cf=true;return}
   myProp={t:Date.now()};say(""+B.name+"に停戦を提案しました");bc(m)}
-function replyCease(ok){var inc=incoming;if(!inc)return;incoming=null;var m={t:"cr",a:inc.a,b:inc.b,ok:ok?1:0};onCr(m);bc(m);trcSig=""}
+function replyCease(ok){var inc=incoming;if(!inc)return;incoming=null;var m={t:"cr",a:inc.a,b:inc.b,ok:ok?1:0};onCr(m);bc(m);trcSig=null}
 function doSurrender(){var w=myWar();if(!w||w.b!==myObj.id)return;if(Date.now()-surArm>4000){surArm=Date.now();say("もう一度「降伏」を押すと降伏します（敗北し、相手の支配下に入ります）");return}surArm=0;var m={t:"sr",u:uidOf(myObj)};onSr(m);bc(m)}
 function trcUpd(){var e=$("trc"),w=myWar(),now=Date.now(),h="",sg;
   if(myProp&&(!w||now-myProp.t>30000))myProp=null;
@@ -987,7 +987,7 @@ function allyBtn(o){
   if(allyWhy(myObj,o))return"";
   var w=allyProp&&allyProp.b===o.id;
   return'<button data-a="ally"'+(w?' disabled':'')+'>'+(w?'同盟交渉中…':'同盟交渉')+'</button>'}
-function refreshSheetAlly(){if(sel&&!editing&&!typingInSheet())try{showSheet()}catch(x){}}
+function refreshSheetAlly(){if(sel&&!editing)try{showSheet()}catch(x){}}
 function addAlly(A,B){if(isAllied(A,B))return;allies[key(A.id,B.id)]=1;
   say(""+A.name+"と"+B.name+"が同盟を結びました");wl(null,""+A.name+"と"+B.name+"が同盟を結んだ","win");sfx("ok")}
 function unAlly(A,B,why){var k=key(A.id,B.id);if(!allies[k])return;delete allies[k];
@@ -1012,7 +1012,7 @@ function onAr(m){var A=uObj(m.a),B=uObj(m.b);if(!A||!B)return;
 function onAb(m){var A=uObj(m.a),B=uObj(m.b);if(!A||!B)return;unAlly(A,B,""+A.name+"が"+B.name+"との同盟を破棄");refreshSheetAlly()}
 function replyAlly(ok){var inc=allyInc;if(!inc)return;allyInc=null;var A=uObj(inc.a),B=uObj(inc.b);
   if(ok&&allyWhy(A,B)){ok=false;say("現在は同盟できません")}
-  var m={t:"ar",a:inc.a,b:inc.b,ok:ok?1:0};onAr(m);bc(m);alnSig=""}
+  var m={t:"ar",a:inc.a,b:inc.b,ok:ok?1:0};onAr(m);bc(m);alnSig=null}
 function breakAlly(t){if(!myObj||!t||!isAllied(myObj,t))return;
   unAlly(myObj,t,""+myObj.name+"が"+t.name+"との同盟を破棄");
   var ua=uidOf(myObj),ub=uidOf(t);if(ua&&ub)bc({t:"ab",a:ua,b:ub});refreshSheetAlly()}
@@ -1027,31 +1027,29 @@ $("top").appendChild($("aln"));
 $("aln").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-c]");if(!b)return;var c=b.getAttribute("data-c");
   if(c==="ok")replyAlly(true);else if(c==="ng")replyAlly(false);alnUpd()});
 setInterval(function(){try{alnUpd()}catch(x){}},300);
-/* ===== 同盟国の参戦：同盟国が宣戦布告された側でも、宣戦布告した側でも、もう一方の同盟国は「参戦／見送り」を選べる（開戦から60秒以内）。
-   参戦すると同盟国のいる陣営（攻撃側／防衛側）に加わり、自国の師団で戦う（命令は自分の「師団」画面から）。戦争が終わると参戦も終わる。
-   両陣営と同盟している国はどちらにも加われない ===== */
+/* ===== 同盟国の参戦：同盟国が宣戦布告した／された場合、もう一方の同盟国は「参戦／見送り」を選べる（開戦から60秒以内）。
+   参戦すると同盟国と同じ陣営に加わり、自国の師団で戦う（命令は自分の「師団」画面から）。戦争が終わると参戦も終わる ===== */
 var JOIN_S=60,joinNo=[],jnCur=null,jnSig="";
-function joinSide(R,w){/* Rが加われる陣営のID（w.a=攻撃側／w.b=防衛側）。加われなければ0 */
-  if(!R||!R.founded||R.ruler||!w)return 0;var A=byId(w.a),B=byId(w.b);if(!A||!B||R===A||R===B)return 0;
-  var aa=isAllied(R,A),ab=isAllied(R,B);if(aa===ab)return 0;return aa?w.a:w.b}
+/* 参戦できる側：宣戦布告した側(w.a)・された側(w.b)どちらの同盟国も参戦できる。両方と同盟している国／どちらとも同盟していない国は不可 */
+function joinSide(w,R){if(!w||!R||R.id===w.a||R.id===w.b)return 0;var A=byId(w.a),B=byId(w.b);if(!A||!B)return 0;var ia=isAllied(R,A),ib=isAllied(R,B);return ia&&!ib?w.a:ib&&!ia?w.b:0}
 function joinWar(w,R,sd){
-  if(!w||wars.indexOf(w)<0||!R||!sd||w.t>JOIN_S+15||busyRoot(R)||joinSide(R,w)!==sd)return false;
-  var V=byId(sd);if(!V)return false;
+  if(!w||wars.indexOf(w)<0||!R||!R.founded||R.ruler||w.t>JOIN_S+15)return false;
+  sd=joinSide(w,R);if(!sd)return false;
+  var V=byId(sd),G=byId(sd===w.a?w.b:w.a);if(!V||!G||busyRoot(R))return false;
   w.j=w.j||{};w.j[R.id]=sd;var n0=w.U.length;members(R).forEach(function(m){mkUnits(w,m,sd)});var n=w.U.length-n0;
   w.n0=w.n0||{};w.n0[sd]=(w.n0[sd]||0)+n;
   wl(w,""+R.name+"が同盟国"+V.name+"側で参戦（"+n+"個師団）","win");say(""+R.name+"が"+V.name+"側で参戦しました");return true}
 function joinCand(){if(!online||!myObj||!myObj.founded||myObj.ruler)return null;
   for(var i=0;i<wars.length;i++){var w=wars[i];if(joinNo.indexOf(w)>=0||w.t>=JOIN_S||(w.j&&w.j[myObj.id]))continue;
-    if(!joinSide(myObj,w)||busyRoot(myObj))continue;return w}
+    if(!joinSide(w,myObj)||busyRoot(myObj))continue;return w}
   return null}
 function askJoin(w){joinNo.push(w);
-  var sd=joinSide(myObj,w);if(!sd){say("参戦できませんでした");return}
-  if(isHost||!peers.length){if(joinWar(w,myObj,sd))openDv();else say("参戦できませんでした")}
-  else{bc({t:"wj",a:w.a,b:w.b,u:myUid,s:sd});say("参戦を表明しました")}}
+  if(isHost||!peers.length){if(joinWar(w,myObj,joinSide(w,myObj)))openDv();else say("参戦できませんでした")}
+  else{bc({t:"wj",a:w.a,b:w.b,u:myUid});say("参戦を表明しました")}}
 function jnUpd(){var e=$("jn"),h="",w=joinCand();
   joinNo=joinNo.filter(function(x){return wars.indexOf(x)>=0});
-  jnCur=w;if(w){var sd=joinSide(myObj,w),V=byId(sd),G=byId(sd===w.a?w.b:w.a);
-    h='<span>同盟国<b>'+nmOf(V)+'</b>が<b>'+nmOf(G)+'</b>'+(sd===w.a?'に宣戦布告しました':'に宣戦布告されました')+'</span><div class="row"><button data-c="ok">参戦</button><button data-c="ng">見送り</button></div>'}
+  jnCur=w;if(w){var sd0=joinSide(w,myObj),V=byId(sd0),G=byId(sd0===w.a?w.b:w.a);
+    h='<span>同盟国<b>'+nmOf(V)+'</b>が<b>'+nmOf(G)+'</b>'+(sd0===w.a?'に宣戦布告しました':'に宣戦布告されました')+'</span><div class="row"><button data-c="ok">参戦</button><button data-c="ng">見送り</button></div>'}
   if(h===jnSig)return;jnSig=h;e.innerHTML=h;e.classList.toggle("show",!!h);
   if(h){sfx("open");try{if(navigator.vibrate)navigator.vibrate([120,60,120])}catch(x){}}}
 $("top").appendChild($("jn"));
@@ -1319,11 +1317,9 @@ function drawWl(){var p=$("wlp");if(!p.classList.contains("show"))return;var b=p
   b=p.querySelector(".wb");b.scrollTop=st?b.scrollHeight:old}
 function landAt(x,y){var p=[x,y];for(var i=objs.length-1;i>=0;i--)if(pip(p,objs[i].pts))return objs[i];return null}
 function nearest(u,a){var b=null,bd=1e9;a.forEach(function(e){var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<bd){bd=d;b=e}});return b}
-/* 低確率で「100人の大師団」が編成される（BIG_P=1師団ごとの確率。人口BIG_POP未満の国では出ない） */
-var BIG_P=.03,BIG_MEN=100,BIG_POP=150;
 function mkUnits(w,o,sd){assign(o,true);var nd=nDiv(o),dep={},P=o.people||[];
-  for(var i=0;i<nd;i++){if(!dvAlive(o,i))continue;(function(i){var M=P.filter(function(q){return q.s&&q.d===i}),Lq=M.filter(function(q){return q.L})[0]||M[0]||spawn(o),bg=(o.pop||0)>=BIG_POP&&Math.random()<BIG_P,men=bg?BIG_MEN:M.length,str=Math.max(4,men)*(1+.35*(o.mil-1))*lvB(o);
-    w.U.push({id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:men,big:bg,str:str,gk:gkOf(o,i),tk:gkOf(o,i)===3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});dep[i]=true;if(bg)wl(w,o.name+(i+1)+"は100人規模の大師団として出撃","land")})(i)}
+  for(var i=0;i<nd;i++){if(!dvAlive(o,i))continue;(function(i){var M=P.filter(function(q){return q.s&&q.d===i}),Lq=M.filter(function(q){return q.L})[0]||M[0]||spawn(o),men=M.length,str=Math.max(4,men)*(1+.35*(o.mil-1))*lvB(o);
+    w.U.push({id:w.nid++,o:o.id,sd:sd,i:i,name:o.name+(i+1),x:Lq.x,y:Lq.y,men:men,str:str,gk:gkOf(o,i),tk:gkOf(o,i)===3,maxhp:str*8*GK[gkOf(o,i)].h,hp:str*8*GK[gkOf(o,i)].h,dps:str*.3*GK[gkOf(o,i)].d,m:"land",hx:Lq.x,hy:Lq.y,tt:0,bt:0,sw:false,hit:0,last:null,eng:null,tg:null,acc:0,dmg:0,dead:false,ord:o.bot?{k:"auto"}:undefined});dep[i]=true})(i)}
   o.dep=dep;o.wipe=false}
 var SHIP={nm:{n:"哨戒艇",h:1,d:1,s:1.5,r:30},ds:{n:"駆逐艦",h:1.5,d:1.3,s:1.9,r:32},cr:{n:"巡洋艦",h:2.6,d:2,s:1.6,r:38},bb:{n:"戦艦",h:4.5,d:3.2,s:1.2,r:46}};
 function fleetW(o){if(o.mil<3)return[["nm",1]];var e=Math.max(0,o.civ+o.mil-12),L=[["ds",Math.max(1,5-.4*e)]];if(o.mil>=6)L.push(["cr",3+.2*e]);if(o.mil>=9)L.push(["bb",2+.4*e]);return L}
@@ -1401,11 +1397,11 @@ function applyOrd(us,w,ord){var l=[];
 function recvOrd(m){if(!m||!m.l)return;m.l.forEach(function(e){wars.forEach(function(w){w.U.forEach(function(u){if(u.dead||u.i!==e[1])return;var O=byId(u.o);if(!O||uidOf(O)!==e[0])return;u.ord=m.o?ordUnwire(m.o,w):null;u.tt=0})})})}
 function showCmd(){var p=$("cmd");if(!usel){p.className="glass";return}p.className="glass show";var u=usel.u;
   p.innerHTML='<div class="sh"><h3>'+esc(u.name)+((u.gk|0)>0?'（'+GK[u.gk|0].n+'）':'')+'</h3><button data-o="x">閉じる</button></div><div id="cmdl" class="lbl"></div>'+
-  '<div class="ups"><button data-o="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-o="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-o="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-o="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-o="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-o="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
+  '<div class="ups"><button data-o="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-o="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-o="cty"><span class="n">属国を指定</span><span class="c">選んで占領</span></button><button data-o="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-o="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-o="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-o="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
   if(vassalMe()){var ub=p.querySelector(".ups");if(ub)ub.style.display="none"}updCmd()}
 function updCmd(){if(!usel)return;var u=usel.u,el=$("cmdl");if(!el)return;var rm=Math.max(1,Math.ceil(u.men*Math.max(0,u.hp)/u.maxhp)),st=u.m==="sea"?"海上":u.m==="build"?"造船中":"陸上";
   el.innerHTML='人数 <b>'+rm+'</b>/'+u.men+'人 ・ '+st+' ・ 命令: <b>'+esc(ordTxt(u))+'</b>'+(canCmd(u)?'':(vassalMe()&&u.sd===root(myObj).id?'（宗主国が指揮）':'（敵の師団）'))+(ordMode?'<br>指示: 標的にする<b>敵の師団</b>をタップしてください':'');
-  var od=u.ord;[].forEach.call($("cmd").querySelectorAll(".ups [data-o]"),function(b){var a=b.getAttribute("data-o"),on=a==="hold"?(!od&&!ordMode):a==="auto"?(!ordMode&&od&&od.k==="auto"):a==="unit"?(ordMode==="unit"||(!ordMode&&od&&od.k==="unit")):a==="home"?(!ordMode&&od&&od.k==="home"):a==="vas"?(!ordMode&&od&&od.k==="vas"):(!ordMode&&od&&od.k==="def");b.classList.toggle("cur",!!on)})}
+  var od=u.ord;[].forEach.call($("cmd").querySelectorAll(".ups [data-o]"),function(b){var a=b.getAttribute("data-o"),on=a==="hold"?(!od&&!ordMode):a==="auto"?(!ordMode&&od&&od.k==="auto"):a==="unit"?(ordMode==="unit"||(!ordMode&&od&&od.k==="unit")):a==="home"?(!ordMode&&od&&od.k==="home"&&od.c==null):a==="cty"?(!ordMode&&od&&od.k==="home"&&od.c!=null):a==="vas"?(!ordMode&&od&&od.k==="vas"):(!ordMode&&od&&od.k==="def");b.classList.toggle("cur",!!on)})}
 function closeCmd(){usel=null;ordMode=false;bulk=null;bulkW=null;$("cmd").className="glass"}
 function endPick(){ordMode=false;var was=bulk;bulk=null;bulkW=null;if(was){dvSel={};$("dvp").classList.add("show");drawDv(true)}updCmd();render()}
 function orderTap(p){var us=bulk||(usel?[usel.u]:[]),w=bulk?bulkW:(usel&&usel.w);if(!us.length||!w){ordMode=false;bulk=null;bulkW=null;return}
@@ -1423,6 +1419,7 @@ $("cmd").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   bulk=null;bulkW=null;
   if(a==="hold"){applyOrd(one,w,null);ordMode=false;say(""+u.name+"は待機する")}
   else if(a==="home"){applyOrd(one,w,{k:"home"});ordMode=false;say(""+u.name+"が相手本土へ進軍する")}
+  else if(a==="cty"){if(!hasVas(w,u)){say("相手に支配国がありません");return}ordMode=false;vpkOpen(one,w,false);updCmd();return}
   else if(a==="vas"){if(!hasVas(w,u)){say("相手に支配国がありません");return}applyOrd(one,w,{k:"vas"});ordMode=false;say(""+u.name+"が相手の支配国へ進軍する")}
   else if(a==="def"){applyOrd(one,w,{k:"def"});ordMode=false;say(""+u.name+"は自国を防衛する")}
   else if(a==="unit"){ordMode=ordMode==="unit"?false:"unit";if(ordMode)say("標的にする敵の師団をタップ")}
@@ -1439,7 +1436,7 @@ function drawDvWar(force){var p=$("dvp"),W=p.querySelector(".dvwar"),s=mySide();
   var keys=s.L.map(ukey),E0=byId(s.sd===s.w.a?s.w.b:s.w.a),sig=keys.join(",")+"|"+s.L.map(function(u){return u.name}).join(",")+"|"+s.me.name+"|"+(E0?E0.name:"");Object.keys(dvSel).forEach(function(k){if(keys.indexOf(k)<0)delete dvSel[k]});
   if(force||sig!==dvSig||!p.querySelector(".dvl")){var old=p.querySelector(".dvl"),sc=old?old.scrollTop:0,E=byId(s.sd===s.w.a?s.w.b:s.w.a),nG=[0,0,0,0],rows="";
     s.L.forEach(function(u){nG[u.gk|0]++;var k=ukey(u),O=byId(u.o);rows+='<div class="dvr" data-d="t" data-k="'+k+'"><span class="cb"></span><div class="dvc"><b>'+esc(u.name)+'</b> <span class="dvt" data-k="'+k+'">'+esc(dvComp(u))+'</span><div class="dvm dvo" data-k="'+k+'">命令: '+esc(ordTxt(u,s.w))+'</div></div><button data-d="g" data-k="'+k+'">表示</button></div>'});
-    W.innerHTML='<div class="lbl" style="margin-top:2px"><b>師団命令（戦争中）</b> ／ '+esc(s.me.name)+' vs '+esc(E?E.name:"?")+' ／ 自軍 '+s.L.length+'個師団（歩兵'+nG[0]+'・砲兵'+nG[1]+'・装甲車'+nG[2]+'・戦車'+nG[3]+'）<br>師団は命令するまで動きません。行をタップで選択 → 下のボタンで命令</div><div class="row"><button data-d="all">全部☑</button><button data-d="none">☑解除</button><span class="sp"></span><span class="lbl dvn"></span></div><div class="wb dvl">'+(rows||'<div class="lbl">動かせる師団がありません</div>')+'</div><div class="lbl">選んだ師団への命令</div><div class="ups"><button data-d="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-d="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-d="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-d="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-d="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-d="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
+    W.innerHTML='<div class="lbl" style="margin-top:2px"><b>師団命令（戦争中）</b> ／ '+esc(s.me.name)+' vs '+esc(E?E.name:"?")+' ／ 自軍 '+s.L.length+'個師団（歩兵'+nG[0]+'・砲兵'+nG[1]+'・装甲車'+nG[2]+'・戦車'+nG[3]+'）<br>師団は命令するまで動きません。行をタップで選択 → 下のボタンで命令</div><div class="row"><button data-d="all">全部☑</button><button data-d="none">☑解除</button><span class="sp"></span><span class="lbl dvn"></span></div><div class="wb dvl">'+(rows||'<div class="lbl">動かせる師団がありません</div>')+'</div><div class="lbl">選んだ師団への命令</div><div class="ups"><button data-d="home"><span class="n">相手本土</span><span class="c">最寄りから占領</span></button><button data-d="vas"><span class="n">相手支配国</span><span class="c">属国を占領</span></button><button data-d="cty"><span class="n">属国を指定</span><span class="c">選んで占領</span></button><button data-d="def"><span class="n">自国防衛</span><span class="c">迎撃・帰陣</span></button><button data-d="unit"><span class="n">相手任意師団</span><span class="c">敵師団をタップ</span></button><button data-d="auto"><span class="n">自動</span><span class="c">自分で判断して行動</span></button><button data-d="hold"><span class="n">待機</span><span class="c">その場で停止</span></button></div>';
     var nl=p.querySelector(".dvl");if(nl)nl.scrollTop=sc;dvSig=sig}
   else s.L.forEach(function(u){var k=ukey(u),a=p.querySelector('.dvt[data-k="'+k+'"]'),b=p.querySelector('.dvo[data-k="'+k+'"]');if(a)a.textContent=dvComp(u);if(b)b.textContent="命令: "+ordTxt(u,s.w)});
   updDvSel()}
@@ -1487,12 +1484,26 @@ $("dvp").addEventListener("click",function(e){var b=e.target.closest&&e.target.c
   if(a==="auto"){applyOrd(us,s.w,{k:"auto"});say(""+ordWho(us)+"が自動で行動する");dvSel={}}
   else if(a==="hold"){applyOrd(us,s.w,null);dvSel={};say(""+ordWho(us)+"が待機")}
   else if(a==="home"){applyOrd(us,s.w,{k:"home"});dvSel={};say(""+ordWho(us)+"が相手本土へ進軍")}
+  else if(a==="cty"){if(!hasVas(s.w,us[0])){say("相手に支配国がありません");return}vpkOpen(us,s.w,true);return}
   else if(a==="vas"){if(!hasVas(s.w,us[0])){say("相手に支配国がありません");return}applyOrd(us,s.w,{k:"vas"});dvSel={};say(""+ordWho(us)+"が相手の支配国へ進軍")}
   else if(a==="def"){applyOrd(us,s.w,{k:"def"});dvSel={};say(""+ordWho(us)+"が自国を防衛")}
   else if(a==="unit"){closeCmd();bulk=us;bulkW=s.w;ordMode="unit";$("dvp").classList.remove("show");say("標的にする敵の師団をタップ（"+ordWho(us)+"）");render();return}
   drawDv(true)});
 $("dvb").addEventListener("click",function(){if($("dvp").classList.contains("show"))$("dvp").classList.remove("show");else openDv()});
 ["wlb","bgb","netb"].forEach(function(i){$(i).addEventListener("click",function(){$("dvp").classList.remove("show")})});
+/* ===== 属国を指定して進軍：相手陣営の属国（BOT含む）から1国を選んで占領 ===== */
+var vpkCtx=null;
+function vpkClose(){var e=$("vpk");if(e)e.remove();vpkCtx=null}
+function vpkOpen(us,w,fromDv){vpkClose();us=us.filter(function(x){return!x.dead});if(!us.length)return;var u0=us[0],E=byId(u0.sd===w.a?w.b:w.a);if(!E)return;
+  var L=members(E).filter(function(m){return m.id!==E.id});if(!L.length){say("相手に支配国がありません");return}
+  var d=document.createElement("div");d.id="vpk";d.className="glass";d.style.cssText="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;width:min(340px,92vw);max-height:70vh;overflow:auto;padding:12px;box-sizing:border-box";
+  var h='<div class="sh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0;font-size:14px">進軍先の属国を選ぶ（'+esc(ordWho(us))+'）</h3><button data-v="x">閉じる</button></div><div class="ups" style="flex-direction:column">';
+  L.forEach(function(m){h+='<button data-v="'+m.id+'" style="flex:none;flex-direction:row;justify-content:space-between;padding:10px 12px"><span class="n">'+esc(m.name||"?")+'</span><span class="c">'+(m.bot?"BOT属国":"属国")+'</span></button>'});
+  d.innerHTML=h+'</div>';document.body.appendChild(d);vpkCtx={us:us,w:w,dv:!!fromDv}}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("#vpk [data-v]");if(!b||!vpkCtx)return;var v=b.getAttribute("data-v"),c=vpkCtx;
+  if(v==="x"){vpkClose();return}
+  var C=byId(+v),us=c.us.filter(function(x){return!x.dead});vpkClose();if(!C||!us.length){say("その国には進軍できません");return}
+  applyOrd(us,c.w,{k:"home",c:C.id});say(""+ordWho(us)+"が"+(C.name||"属国")+"へ進軍");if(c.dv){dvSel={};drawDv(true)}updCmd();render()});
 function pick(w,u,en,eid){
   var od=u.ord;if(!od)return null;/* 命令がない師団はその場で待機（射程に入った敵は撃つ） */
   if(!en.length){/* 敵師団が全滅していても、命令どおりに動く（勝手に住民を追わない） */
@@ -1501,7 +1512,9 @@ function pick(w,u,en,eid){
     var PP=sidePeople(eid);if(!PP.length)return null;var D=PP[(u.id*7+Math.floor(w.t/6))%PP.length];return {x:D.x,y:D.y}}
   if(od.k==="unit"){var T=null;en.forEach(function(e){if(e.id===od.id)T=e});if(T)return T;u.ord=null;wl(w,""+u.name+"の標的を撃破したため待機に戻る","land");return null}
   if(od.k==="auto"){var OO=byId(u.o),cd=en.filter(function(e){return e.m==="sea"?(u.m==="sea"||(OO&&OO.civ>=3)):true});if(cd.length)return pickIn(w,u,cd);return homeTarget(w,u,eid)}
-  if(od.k==="home"||od.k==="vas")return homeTarget(w,u,eid);
+  if(od.k==="home"||od.k==="vas"){/* 進軍中に近くへ敵師団が現れたら、足を止めて迎え撃つ（射程の5倍以内なら自分から寄って戦う） */
+    var sea0=u.m==="sea",R0=sea0?(u.rg||30):GK[u.gk|0].r,AG=R0*5,nr=en.filter(function(e){return(e.m==="sea")===sea0&&Math.hypot(e.x-u.x,e.y-u.y)<AG});
+    if(nr.length)return pickIn(w,u,nr);return homeTarget(w,u,eid)}
   if(od.k==="def"){if(u.hx==null){u.hx=u.x;u.hy=u.y}var SR=byId(u.sd),inb=en.filter(function(e){if(e.m==="sea")return false;var L2=landAt(e.x,e.y);return L2&&root(L2)===SR});
     if(inb.length)return pickIn(w,u,inb);return{x:u.hx,y:u.hy}}
   return null}
@@ -1524,8 +1537,7 @@ function warStep(w,dt){
     dvSync(w,u,O);u.hit=Math.max(0,u.hit-dt);u.lg=Math.max(0,(u.lg||0)-dt);u.eng=null;
     en.forEach(function(e){if((e.m==="sea")!==sea)return;var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<R&&d<bd){bd=d;best=e}});
     if(u.ord&&u.ord.k==="unit")en.forEach(function(e){if(e.id===u.ord.id&&(e.m==="sea")===sea&&Math.hypot(e.x-u.x,e.y-u.y)<R)best=e});
-    var rush=!!(u.ord&&(u.ord.k==="home"||u.ord.k==="vas"));
-    if(best){u.eng=best;best.dmg+=u.dps*(.8+Math.random()*.4)*dt*(rush?.6:1)*homeB(u)/homeB(best);best.last=u;u.hit=.3;fxFire(u,best);if(!rush)return}
+    if(best){u.eng=best;best.dmg+=u.dps*(.8+Math.random()*.4)*dt*homeB(u)/homeB(best);best.last=u;u.hit=.3;fxFire(u,best);return}
     u.tt-=dt;if(u.tt<=0||!u.tg||u.tg.dead){u.tt=.5;u.tg=pick(w,u,en,eid)}
     /* 固まり防止：4秒たっても動けていなければ、味方の住民のいる所へ一旦迂回してから再び目標へ */
     u.sk=(u.sk||0)+dt;if(u.sk>=4){if(u.sx!=null&&!u.eng&&u.m==="land"&&u.tg&&!(u.esc>0)&&Math.hypot(u.tg.x-u.x,u.tg.y-u.y)>=3&&Math.hypot(u.x-u.sx,u.y-u.sy)<3){var PP=sidePeople(u.sd);if(PP.length){var DD=PP[Math.floor(Math.random()*PP.length)];u.esc=4;u.et={x:DD.x,y:DD.y}}}u.sx=u.x;u.sy=u.y;u.sk=0}
@@ -1634,7 +1646,7 @@ function drawPeople(){
   var T=(typeof lastT==="number"&&lastT?lastT:0)/1000,ps=view.s<1.1?1:view.s<2.6?2:3,L=[];
   objs.forEach(function(o){if(!o.founded||!o.people||o.wipe)return;var col=effU(o),dep=o.dep;
     o.people.forEach(function(q){
-      if(q.s&&dep&&dep[q.d])return;/* 出撃中の兵は師団として描く */
+      if(q.s&&dep&&dep[q.d])return;/* 出撃中の兵は師団として描く */if(q.s&&q.d!=null&&dvAlive(o,q.d))return;/* 平時も師団として描く */
       var s=w2s([q.x,q.y]);if(s.x<-20||s.y<-20||s.x>cw+20||s.y>chh+20)return;
       L.push([q,s,col])})});
   if(LITE){/* 軽量モード：国内の人は国色の丸（兵士は濃い色）。同色はまとめて1回で塗る */
@@ -1664,7 +1676,19 @@ function drawSquad(u,s,c){
       if(((T/90|0)+i)%3===0){var dr=fl?-1:1,tx=x+dr*(img.width/2)*ps,ty=y-6*ps;ctx.fillStyle="#fff3a0";ctx.fillRect(dr>0?tx:tx-2*ps,ty-ps,2*ps,2*ps);ctx.fillStyle="#ff9a2e";ctx.fillRect(dr>0?tx+2*ps:tx-3*ps,ty-ps/2,ps,ps)}}
     else{img=sprImg("sol",mv?((T/180|0)+i)%4:0,c,sk,hc);sprDraw(img,x,y,ps,fl)}}
   ctx.restore()}
-function drawWar(){wars.forEach(function(w){
+/* 平時の師団：戦争が無くても、出撃していない師団を国内の兵士の位置にマーカーとして常時表示する（描画専用の擬似ユニット） */
+var PUC={};
+function peaceW(){var U=[],seen={};
+  objs.forEach(function(o){if(!o.founded||!o.people||o.wipe)return;var D=dvs(o),dep=o.dep||{},by={};
+    o.people.forEach(function(q){if(q.s&&q.d!=null)(by[q.d]=by[q.d]||[]).push(q)});
+    for(var i=0;i<D.length;i++){if(D[i].x||dep[i]||!by[i])continue;
+      var M=by[i],Lq=M.filter(function(q){return q.L})[0]||M[0],k=o.id+"_"+i,u=PUC[k];
+      if(!u)u=PUC[k]={id:o.id*1000+i,o:o.id,i:i,sd:o.id,m:"land",sh:null,eng:null,tg:null,dead:false,hit:0,ord:null};
+      u.name=o.name+(i+1);u.x=Lq.x;u.y=Lq.y;u.men=M.length;u.hp=1;u.maxhp=1;u.gk=gkOf(o,i);u.tk=u.gk===3;
+      seen[k]=1;U.push(u)}});
+  Object.keys(PUC).forEach(function(k){if(!seen[k])delete PUC[k]});
+  return{U:U}}
+function drawWar(){wars.concat([peaceW()]).forEach(function(w){
   var cl=function(u){var o=byId(u.o);return o?effU(o):"#888"};
   w.U.forEach(function(u){if(u.dead)return;var t=u.eng||u.tg;if(!t)return;var s=w2s([u.x,u.y]),e=w2s([t.x,t.y]),c=cl(u),a=Math.atan2(e.y-s.y,e.x-s.x),col=u.eng?"#e5484d":u.ord?"#f5a524":shade(c,.55);
     ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(e.x,e.y);ctx.strokeStyle=col;ctx.lineWidth=u.eng?2.5:1.6;ctx.setLineDash(u.eng?[]:[6,4]);ctx.stroke();ctx.setLineDash([]);
@@ -1724,10 +1748,9 @@ function liveHTML(o){var r=root(o),h='<div class="lbl">人口 <b>'+popN(o.pop)+'
   if(o.ruler&&(!online||o.mine)){var mx=(o.pw||0)>=199.999;h+='<div class="lbl">反乱</div><button data-a="reb" class="danger"'+(mx?'':' disabled')+' style="width:100%">裏切りに挑戦（'+(mx?'国力MAX：全消費・1〜100で70以上で成功':'国力MAXで解放 '+Math.floor(o.pw||0)+' / 200')+'）</button>'}
   return h}
 /* ===== BOT国：数分に一度、ホスト端末がプレイヤーの国の近くへ「完全自動運営の国」を出現させる =====
-   BOT_MIN_S〜BOT_MAX_S秒ごとに1国。上限は オンラインプレイヤー数（ホスト含む）×BOT_CAP国。既存のどの国（描きかけ含む）とも BOT_GAP 以上離して配置。
+   BOT_MIN_S〜BOT_MAX_S秒ごとに1国。上限BOT_CAP国。既存のどの国（描きかけ含む）とも BOT_GAP 以上離して配置。
    BOTはホスト端末が計算し、他プレイヤーにはプレイヤーの国と同じ形で同期される（操作は不可・宣戦布告は可能）。 */
-var BOT_MIN_S=180,BOT_MAX_S=300,BOT_CAP=8,BOT_GAP=14;/* BOT_CAPは「1人あたり」の数 */
-function botCap(){var n=1;peers.forEach(function(p){if(p&&p.readyState==="open")n++});return n*BOT_CAP}
+var BOT_MIN_S=180,BOT_MAX_S=300,BOT_CAP=8,BOT_GAP=14;
 var BOT_NAMES=["アルセリア","ノルディア","ヴェルモント","カスタニア","ミレニア","ソルタニア","オルディス","ラグナード","ハイゼン","ルーメリア","ダルムス","エスティア","クロノス","ベルガ","シルヴァ","アストレア","ゼフィラ","モルガン","ティアナ","カリオン"];
 var botT={next:0,ai:0};
 function botDelay(){return(BOT_MIN_S+Math.random()*(BOT_MAX_S-BOT_MIN_S))*1000}
@@ -1746,7 +1769,7 @@ function botShape(cx,cy,r){var n=18,p1=Math.random()*6.28,p2=Math.random()*6.28,
   return P}
 function botPush(o){var j=JSON.stringify(snapOf(o));if(j===o.botJ)return;o.botJ=j;world[o.uid]=j;bc({t:"s",u:o.uid,j:j})}
 function botSpawn(){
-  if(objs.filter(function(o){return o.botH}).length>=botCap())return false;
+  if(objs.filter(function(o){return o.botH}).length>=BOT_CAP)return false;
   var A=objs.filter(function(o){return o.founded&&!o.bot&&o.pts&&o.pts.length>2});if(!A.length)return false;
   var an=A[Math.random()*A.length|0],ab=bounds(an.pts),ac=[(ab[0]+ab[2])/2,(ab[1]+ab[3])/2],ar=Math.max(ab[2]-ab[0],ab[3]-ab[1])/2;
   var ref=A[Math.random()*A.length|0],ta=Math.max(8000,Math.min(120000,area(ref.pts)*(.5+Math.random()*.6))),r=Math.sqrt(ta/Math.PI),best=null,k,P;
@@ -1839,9 +1862,6 @@ function tap(p){
 
 /* ポップアップ */
 function tblHas(o){return o.tbl.some(function(r,i){return i>0&&r.some(function(c){return c})})}
-/* 入力欄（国名・メモなど）に文字を入力している間は、シートを再描画しない。
-   Androidではキーボードが開くと resize が発生し、再描画で入力欄が作り直されてフォーカスが外れ、キーボードが消えていた */
-function typingInSheet(){var a=document.activeElement;return !!a&&a!==document.body&&sheet.contains(a)&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA")&&a.type!=="range"&&a.type!=="color"}
 function showSheet(){
   updMine();
   if(!sel){hsel=null;sheet.className="glass";return}
@@ -1893,9 +1913,9 @@ sheet.addEventListener("input",function(e){
 var mineId=null;
 function minePanelOn(){return !!myObj&&myObj.founded&&objs.indexOf(myObj)>=0}
 function updMine(){var p=$("mine"),o=myObj;
-  if(!minePanelOn()){if(p.classList.contains("show")){p.className="glass";p.innerHTML="";mineId=null;document.body.classList.remove("wm");document.body.style.removeProperty("--mh");if(sel&&sel.founded&&!editing&&!typingInSheet())showSheet()}return}
+  if(!minePanelOn()){if(p.classList.contains("show")){p.className="glass";p.innerHTML="";mineId=null;document.body.classList.remove("wm");document.body.style.removeProperty("--mh");if(sel&&sel.founded&&!editing)showSheet()}return}
   document.body.classList.add("wm");
-  if(!p.classList.contains("show")||mineId!==o){p.className="glass show";p.innerHTML='<div class="sh"><h3 id="mnm"></h3></div>'+pwHTML(o,"m");mineId=o;if(sel===o&&!editing&&!typingInSheet())showSheet()}
+  if(!p.classList.contains("show")||mineId!==o){p.className="glass show";p.innerHTML='<div class="sh"><h3 id="mnm"></h3></div>'+pwHTML(o,"m");mineId=o;if(sel===o&&!editing)showSheet()}
   document.body.style.setProperty("--mh",(p.offsetHeight+22)+"px");
   var h=$("mnm");if(h)h.textContent=""+(o.name||"自国");updPw(o,"m")}
 $("mine").addEventListener("click",function(e){var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a"),o=myObj;if(!a||!o||!o.founded)return;
@@ -1923,7 +1943,7 @@ function bgPanel(){$("bgp").innerHTML='<h4>背景色</h4>'+rgbHTML(bg,"bg")+'<bu
 $("bgb").onclick=function(){$("wlp").classList.remove("show");var p=$("bgp");p.classList.toggle("show");if(p.classList.contains("show"))bgPanel()};
 $("bgp").addEventListener("input",function(e){if(e.target.hasAttribute("data-ch")){bg=onRGB(e.target);save();render()}});
 $("bgp").addEventListener("click",function(e){if(e.target.id==="bgr"){bg="#2f6fb5";bgPanel();save();render()}});
-window.addEventListener("resize",function(){resize();updMine();if(!typingInSheet())showSheet()});
+window.addEventListener("resize",function(){resize();updMine();showSheet()});
 
 setTool("select");updUI();resize();home();requestAnimationFrame(loop);
 
@@ -1955,7 +1975,7 @@ function onNet(m,dc){
   else if(m.t==="s"){applyOne(m.u,m.j);saveWorld();if(isHost)bc(m,dc)}
   else if(m.t==="d"){removeOne(m.u);saveWorld();if(isHost)bc(m,dc)}
   else if(m.t==="cp"){onCp(m);if(isHost)bc(m,dc)}
-  else if(m.t==="wj"){if(isHost){var jr=uObj(m.u),jw=warOf(m.a,m.b);if(jr&&jw)joinWar(jw,jr,m.s||jr&&joinSide(jr,jw))}}
+  else if(m.t==="wj"){if(isHost){var jr=uObj(m.u),jw=warOf(m.a,m.b);if(jr&&jw)joinWar(jw,jr,joinSide(jw,jr))}}
   else if(m.t==="ap"){if(isHost)bc(m,dc);onAp(m)}
   else if(m.t==="ar"){onAr(m);if(isHost)bc(m,dc)}
   else if(m.t==="ab"){onAb(m);if(isHost)bc(m,dc)}
