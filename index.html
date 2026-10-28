@@ -138,6 +138,23 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 #rsn textarea{width:100%;box-sizing:border-box;min-height:84px;resize:vertical;font:inherit;font-size:16px;padding:8px;border-radius:8px;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:inherit}
 #rsn .row{display:flex;gap:8px;margin-top:10px;justify-content:flex-end;align-items:center}
 #rsn .cnt{margin-right:auto;font-size:11px;opacity:.7}
+/* 通告：入力欄(#ntm)と受信ダイアログ(#ntv) */
+#ntm{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px;box-sizing:border-box}
+#ntm.show{display:flex}
+#ntm .bx{width:min(420px,100%);background:var(--panel,#222);color:var(--text,#eee);border:1px solid rgba(128,128,128,.4);border-radius:12px;padding:16px;box-sizing:border-box}
+#ntm h3{margin:0 0 4px;font-size:16px}
+#ntm p{margin:0 0 8px;font-size:12px;opacity:.75;word-break:break-all}
+#ntm textarea{width:100%;box-sizing:border-box;min-height:100px;resize:vertical;font:inherit;font-size:16px;padding:8px;border-radius:8px;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:inherit}
+#ntm .row{display:flex;gap:8px;margin-top:10px;justify-content:flex-end;align-items:center}
+#ntm .cnt{margin-right:auto;font-size:11px;opacity:.7}
+#ntv{position:fixed;inset:0;z-index:58;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:16px;box-sizing:border-box}
+#ntv.show{display:flex;animation:dclIn .3s ease-out}
+#ntv .bx{width:min(460px,100%);background:var(--panel,#222);color:var(--text,#eee);border:1px solid rgba(128,128,128,.45);border-radius:14px;padding:18px;box-sizing:border-box;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+#ntv .hd{font-size:12px;opacity:.7;letter-spacing:.08em;margin-bottom:4px}
+#ntv .nm{font-size:18px;font-weight:800;line-height:1.4;word-break:break-all;margin-bottom:10px}
+#ntv .tx{font-size:16px;line-height:1.7;padding:12px 14px;border-radius:10px;background:rgba(128,128,128,.14);border:1px solid rgba(128,128,128,.3);word-break:break-all;white-space:pre-wrap;max-height:50vh;overflow:auto}
+#ntv .row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;align-items:center}
+#ntv .cnt{margin-right:auto;font-size:11px;opacity:.7}
 #decl .tp{font-size:12px;opacity:.7;margin-top:18px;letter-spacing:.1em}
 #dvp{position:absolute;top:54px;right:10px;width:min(350px,92%);padding:10px;display:none;z-index:3;max-height:82vh;overflow:auto;touch-action:pan-y;-webkit-user-select:none;user-select:none}
 #dvp.show{display:block}
@@ -306,6 +323,8 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
 <div id="res"></div>
 <div id="trc"></div><div id="aln"></div><div id="jn"></div>
 <div id="rsn"><div class="bx"><h3>宣戦布告</h3><p id="rsnT"></p><textarea id="rsnI" maxlength="100" placeholder="宣戦布告の理由（相手に表示されます・100字まで）"></textarea><div class="row"><span class="cnt" id="rsnC">0/100</span><button id="rsnX">やめる</button><button id="rsnOK" class="danger">宣戦布告する</button></div></div></div>
+<div id="ntm"><div class="bx"><h3>通告</h3><p id="ntmT"></p><textarea id="ntmI" maxlength="200" placeholder="通告の文章（相手に表示されます・200字まで）"></textarea><div class="row"><span class="cnt" id="ntmC">0/200</span><button id="ntmX">やめる</button><button id="ntmOK" class="pri">通告する</button></div></div></div>
+<div id="ntv"><div class="bx"><div class="hd">通告</div><div class="nm" id="ntvN"></div><div class="tx" id="ntvX"></div><div class="row"><span class="cnt" id="ntvC"></span><button id="ntvOK" class="pri">閉じる</button></div></div></div>
 <script>
 /* ★ Supabase設定：Supabaseのプロジェクトの「Project URL」と「anon(publishable) key」を下に貼る。空のままでも、ゲーム内の「接続」→「Supabase設定」から入力できます */
 window.SB_CONFIG={url:"https://xmopbdwajsklhbsivkgz.supabase.co",key:"sb_publishable_PHHzE4MFF3Wr5-clsl7V9Q_VRHLg6np"};
@@ -535,7 +554,8 @@ function allPop(r){var n=0;objs.forEach(function(o){if(o.founded&&root(o)===r)n+
 function say(m){var d=document.createElement("div");d.className="glass toast";d.textContent=m;var L=$("log");L.appendChild(d);while(L.children.length>4)L.removeChild(L.firstChild);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d)},7000)}
 function warP(f){return f<5?.7:f<25?.3:f<50?.1:0}
 function spawn(o){var b=bounds(o.pts),x,y,n=0;do{x=b[0]+Math.random()*(b[2]-b[0]);y=b[1]+Math.random()*(b[3]-b[1])}while(!pip([x,y],o.pts)&&++n<40);if(n>=40){var c=bbox(o.pts);x=c[0];y=c[1]}return{x:x,y:y,s:false,L:false,d:null,a:Math.random()*6.28,t:Math.random()*2,sp:8+Math.random()*10}}
-function sz(o){return 10+5*(o.mil-1)}
+var DIV_SZ=30,SOLD_RATE=.4;/* 1師団の標準兵士数＝30人。兵士の総数は国民数×SOLD_RATE（40%）まで */
+function sz(o){return DIV_SZ}
 /* 人口密度：表示人数・家の数はそのまま、人口の数値だけ DEN 倍（1人の点＝DEN人） */
 var DEN=4;function popN(x){return Math.floor(x*DEN)}
 /* 文明・教育による師団補正（多少強くなる） */
@@ -544,7 +564,7 @@ function lvB(o){return 1+.04*((o.civ||1)-1)+.04*((o.edu||1)-1)}
 function dvs(o){if(!o.dvs)o.dvs=[{k:0,s:0,x:false,e:0,v:2}];var D=o.dvs;for(var i=0;i<D.length;i++){var d=D[i];if(d.v!==2){if(d.k>=1)d.k=3;d.v=2}}return D}
 function dvAlive(o,i){var d=dvs(o)[i];return!!d&&!d.x}
 function nAlive(o){var n=0;dvs(o).forEach(function(d){if(!d.x)n++});return n}
-function dvCap(o){return Math.max(1,Math.min(40,Math.floor(o.pop/24)))}
+function dvCap(o){return Math.max(1,Math.min(40,Math.floor(Math.min(o.pop,300)*SOLD_RATE/DIV_SZ)))}/* 全師団が標準兵士数（30人）を確保できる数まで（人口75人ごとに1師団） */
 var SK=["nm","ds","cr","bb"],DVC={mk:30,gk:[0,20,30,40],sp:[0,30,60,100],rv:30};
 /* 地上兵科の進化：歩兵→砲兵→装甲車→戦車（h=耐久倍率 d=火力倍率 s=速度倍率 r=射程） */
 var GK=[{n:"歩兵",h:1,d:1,s:1,r:16},{n:"砲兵",h:.9,d:1.5,s:.85,r:28},{n:"装甲車",h:1.6,d:1.4,s:1.5,r:17},{n:"戦車",h:2.2,d:1.8,s:1.4,r:19}];
@@ -568,7 +588,7 @@ function syncPeople(o,dt){
   var P=o.people=o.people||[],n=Math.min(Math.floor(o.pop),300),i,ex=0;
   while(P.length<n)P.push(spawn(o));
   while(P.length>n){var k=P.length-1;for(i=P.length-1;i>=0;i--)if(!P[i].s){k=i;break}P.splice(k,1)}
-  var tgt=Math.min(Math.floor(P.length*.4),nAlive(o)*sz(o)),sc=P.filter(function(q){return q.s}).length;
+  var tgt=Math.min(Math.floor(P.length*SOLD_RATE),nAlive(o)*sz(o)),sc=P.filter(function(q){return q.s}).length;
   var pend=(o.pend||[]).map(function(t){return t-dt}).filter(function(t){if(t<=0){ex++;return false}return true});
   for(i=0;i<ex&&sc<tgt;i++)if(conv(P))sc++;
   while(sc+pend.length<tgt&&conv(P))sc++;
@@ -633,11 +653,11 @@ function castleMax(o){var c=o.civ||1;return c>=9?3:c>=6?2:1}
 /* 城の戦力補正：完成した城のレベル合計×5%（最大+45%）。本土（自陣営の国土）にいる陸の師団の攻撃力と耐久力が上がる */
 function castleB(o){var t=0;facs(o,"c").forEach(function(c){if(c.b>=1)t+=Math.floor(c.lv)});return .05*t}
 function homeB(u){if(u.m!=="land")return 1;var O=byId(u.o),L=landAt(u.x,u.y);if(!O||!L||root(L)!==root(O))return 1;return 1+castleB(O)}
-/* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分の5%（FORT_ATK）、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
-var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]},FORT_ATK=.05;/* 要塞の攻撃力倍率（現在の5%） */
+/* ===== 要塞：動かせない戦車砲台。城の1.5倍（切り上げ）まで建築可。Lv1/2/3で攻撃力は戦車5/15/30台分の15%（FORT_ATK）、射程はとても広い。HPがあり、壊れたら国力を消費して1分で再建築 ===== */
+var FORT={n:[5,15,30],h:[10,25,50],r:[100,120,140]},FORT_ATK=.15;/* 要塞の攻撃力倍率（現在の15%：従来の5%の3倍） */
 function fortCap(o){return Math.ceil(castleCap(o)*1.5)}
 function fLv(f){return Math.max(1,Math.min(3,Math.floor(f.lv)))}
-function tkMul(o){return Math.max(4,sz(o))*(1+.35*((o.mil||1)-1))*lvB(o)}
+function tkMul(o){return Math.max(4,10+5*((o.mil||1)-1))*(1+.35*((o.mil||1)-1))*lvB(o)}
 function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]*FORT_ATK}
 function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]}
 function fortR(f){return FORT.r[fLv(f)-1]}
@@ -1226,6 +1246,51 @@ $("rsnX").addEventListener("click",closeReason);
 $("rsnOK").addEventListener("click",function(){var t=rsnT,r=$("rsnI").value;closeReason();declareWar(t,r)});
 $("rsn").addEventListener("click",function(e){if(e.target===this)closeReason()});
 $("decl").addEventListener("click",function(){if(declCur&&Date.now()-declT0>700)declCur.go()});
+/* ===== 通告：国をタップ →「通告」ボタン → 文章を入力 → 相手の画面に「(自国)からの通告」と文章を表示 =====
+   宣戦布告と違って開戦はしない（文章を送るだけ）。送れるのはプレイヤーの国のみ（BOT国は読めないので不可）。
+   通信は P2P の {t:"nc",a:送信側uid,b:受信側uid,x:文章}。ホストが他の参加者へ中継する */
+var ntcQ=[],ntcT=null,ntcLast=0,NTC_MAX=200;
+function cleanNt(r){return String(r==null?"":r).replace(/\r/g,"").replace(/[ \t\u3000]+/g," ").replace(/\n{3,}/g,"\n\n").trim().slice(0,NTC_MAX)}
+function ntcBtn(o){
+  if(!online||!o||o.mine||!o.founded||o.bot||o.botH||!myObj||!myObj.founded)return"";
+  return'<button data-a="ntc">通告</button>'}
+function askNotice(t){
+  if(!t)return;
+  if(!myObj||!myObj.founded){say("先に建国してください");return}
+  ntcT=t;$("ntmT").textContent=(t.name||"名称未設定の国")+"に通告します。文章を入力してください";
+  $("ntmI").value="";$("ntmC").textContent="0/"+NTC_MAX;$("ntm").classList.add("show");
+  setTimeout(function(){try{$("ntmI").focus()}catch(x){}},50)}
+function closeNotice(){$("ntm").classList.remove("show");ntcT=null}
+/* 送信（成功したら true） */
+function sendNotice(t,text){
+  text=cleanNt(text);
+  if(!myObj||!myObj.founded){say("先に建国してください");return false}
+  if(!t||!t.founded||t===myObj||t.mine)return false;
+  if(t.bot||t.botH){say("BOT国には通告できません");return false}
+  if(!text){say("通告の文章を入力してください");return false}
+  if(Date.now()-ntcLast<3000){say("通告の連続送信はできません。少し待ってください");return false}
+  var ua=uidOf(myObj),ub=uidOf(t);if(!ua||!ub){say("相手の国の情報がまだ届いていません");return false}
+  ntcLast=Date.now();say((t.name||"名称未設定の国")+"に通告しました");
+  bc({t:"nc",a:ua,b:ub,x:text});return true}
+/* 受信（全端末に中継される。自分宛なら画面に表示、第三者には「通告があった」ことだけ知らせる） */
+function onNc(m){
+  var A=uObj(m.a),B=uObj(m.b);if(!A||!B||A===B||typeof m.x!=="string")return;
+  var tx=cleanNt(m.x);if(!tx)return;
+  var an=A.name||"名称未設定の国";
+  if(myObj&&myObj.founded&&B===myObj){
+    ntcQ.push({n:an,x:tx});if(ntcQ.length>20)ntcQ.shift();
+    say(an+"から通告が届きました");sfx("open");try{if(navigator.vibrate)navigator.vibrate([120,60,120])}catch(x){}
+    ntcShow();return}
+  if(A!==myObj)say(an+"が"+(B.name||"名称未設定の国")+"に通告")}
+function ntcShow(){
+  var v=$("ntv");if(!ntcQ.length){v.classList.remove("show");return}
+  var d=ntcQ[0];$("ntvN").innerHTML="<b>"+esc(d.n)+"</b>からの通告";$("ntvX").textContent=d.x;
+  $("ntvC").textContent=ntcQ.length>1?"ほか "+(ntcQ.length-1)+" 件":"";v.classList.add("show")}
+$("ntmI").addEventListener("input",function(){$("ntmC").textContent=this.value.length+"/"+NTC_MAX});
+$("ntmX").addEventListener("click",closeNotice);
+$("ntmOK").addEventListener("click",function(){if(sendNotice(ntcT,$("ntmI").value))closeNotice()});
+$("ntm").addEventListener("click",function(e){if(e.target===this)closeNotice()});
+$("ntvOK").addEventListener("click",function(){ntcQ.shift();ntcShow()});
 /* ===== 戦争エフェクト ===== */
 var FX=[],fxT=0;
 var FXLITE={sm:1,sp:1,db:1,dp:1,ry:1,sc:1,fl:1};
@@ -2049,7 +2114,7 @@ function showSheet(){
   sheet.className="glass show";var o=sel,h="";
   if(!o.founded){sheet.innerHTML='<div class="sh"><h3>新しい国</h3><button data-a="del">取消</button></div><div class="lbl">国名をつけて建国しましょう(人口2からスタート)</div><input id="nm" placeholder="国名" value="'+esc(o.name)+'"><div class="row" style="margin-top:8px"><button data-a="found" class="pri">建国する</button></div>';return}
   if(!editing){
-    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+(o.bot?' <small style="font-weight:600;color:var(--sub)">BOT運営</small>':'')+'</h3>'+(canEditNation(o)?'<button data-a="edit" class="pri">編集</button>':'')+declBtn(o)+allyBtn(o)+'<button data-a="x">閉じる</button></div>'+(minePanelOn()?'':pwHTML(o))+'<div id="live">'+liveHTML(o)+'</div>';
+    h='<div class="sh"><h3>'+esc(o.name?dn(o):"名称未設定")+(o.bot?' <small style="font-weight:600;color:var(--sub)">BOT運営</small>':'')+'</h3>'+(canEditNation(o)?'<button data-a="edit" class="pri">編集</button>':'')+declBtn(o)+allyBtn(o)+ntcBtn(o)+'<button data-a="x">閉じる</button></div>'+(minePanelOn()?'':pwHTML(o))+'<div id="live">'+liveHTML(o)+'</div>';
     if(tblHas(o)){h+="<table>";o.tbl.forEach(function(r,i){h+="<tr>"+r.map(function(c){return(i?"<td>":"<th>")+esc(c)+(i?"</td>":"</th>")}).join("")+"</tr>"});h+="</table>"}
     if(o.note)h+='<div class="note">'+esc(o.note)+"</div>";
   }else{
@@ -2059,10 +2124,11 @@ function showSheet(){
   sheet.innerHTML=h;if(!editing&&!minePanelOn())updPw(o);
 }
 sheet.addEventListener("click",function(e){
-  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(online&&!sel.mine&&a!=="x"&&a!=="decl"&&a!=="ally"&&a!=="unally"&&!(botVassal(sel)&&(a==="edit"||a==="done"))){say("他のプレイヤーの国は操作できません");return}
+  var bt=e.target.closest&&e.target.closest("[data-a]"),a=bt&&bt.getAttribute("data-a");if(!a||!sel)return;var t=sel.tbl;if(online&&!sel.mine&&a!=="x"&&a!=="decl"&&a!=="ally"&&a!=="unally"&&a!=="ntc"&&!(botVassal(sel)&&(a==="edit"||a==="done"))){say("他のプレイヤーの国は操作できません");return}
   if(a==="x"){sel=null;hsel=null}
   else if(a==="edit"){editing=true}
   else if(a==="decl"){askReason(sel)}
+  else if(a==="ntc"){askNotice(sel)}
   else if(a==="ally"){proposeAlly(sel)}
   else if(a==="unally"){breakAlly(sel)}
   else if(a==="reb"){rebel(sel)}
@@ -2163,6 +2229,7 @@ function onNet(m,dc){
   else if(m.t==="cr"){onCr(m);if(isHost)bc(m,dc)}
   else if(m.t==="sr"){onSr(m);if(isHost)bc(m,dc)}
   else if(m.t==="wd"){startDecl(m.a,m.b,m.r);if(isHost)bc(m,dc)}
+  else if(m.t==="nc"){onNc(m);if(isHost)bc(m,dc)}
   else if(m.t==="od"){recvOrd(m);if(isHost)bc(m,dc)}
   else if(m.t==="bty"){var bo2=uObj(m.a),br2=uObj(m.b);if(bo2&&br2)showBetrayed(bo2.id,br2.id);if(isHost)bc(m,dc)}
   else if(m.t==="bt"){if(isHost){var bo=uObj(m.u);if(bo&&bo.ruler)betray(bo)}}
