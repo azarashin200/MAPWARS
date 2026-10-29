@@ -194,7 +194,7 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
   #who{display:none}
 
   /* 上から開くパネル：全幅、画面上部に固定 */
-  #bgp,#wlp,#net,#dvp{top:56px;left:8px;right:8px;width:auto;max-width:none;max-height:46dvh;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;z-index:6}
+  #bgp,#wlp,#net,#dvp,#cfgp{top:56px;left:8px;right:8px;width:auto;max-width:none;max-height:46dvh;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;z-index:6}
   #bgp,#wlp{touch-action:pan-y}
   #wlp .wb{max-height:30dvh}
   #dvp .dvl{max-height:20dvh}#dvp .dvl2{max-height:16dvh}
@@ -279,10 +279,15 @@ body:has(#wlp.show) #log{top:calc(54px + 34vh + 70px)}
   #scrim.show{display:block}
 
   /* 戦況・師団・接続・背景：親指が届く下からのシート */
-  #bgp,#wlp,#net,#dvp{top:auto;left:0;right:0;bottom:0;width:auto;max-width:none;max-height:62dvh;box-sizing:border-box;z-index:8;
+  #bgp,#wlp,#net,#dvp,#cfgp{top:auto;left:0;right:0;bottom:0;width:auto;max-width:none;max-height:62dvh;-webkit-overflow-scrolling:touch;box-sizing:border-box;z-index:8;
     border-radius:20px 20px 0 0;border-width:1px 0 0;padding:6px 14px calc(14px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain}
-  #bgp::before,#wlp::before,#net::before,#dvp::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
-  #bgp h4,#wlp h4,#net h4,#dvp h4{font-size:15px;margin-bottom:10px}
+  #bgp::before,#wlp::before,#net::before,#dvp::before,#cfgp::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+  #bgp h4,#wlp h4,#net h4,#dvp h4,#cfgp h4{font-size:15px;margin-bottom:10px}
+  #cfgp{max-height:70dvh;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+  #cfgp h4{position:sticky;top:0;z-index:1;background:var(--panel);padding:4px 0}
+  #cfgp h4 button{min-height:36px;padding:6px 14px;font-size:13px}
+  #cfgp .cr{margin:6px 0 10px;font-size:13px}
+  #cfgp .cr input[type=range]{touch-action:pan-y;height:36px}
   #wlp .wb{max-height:44dvh;font-size:14px}
   #dvp{max-height:70dvh}
   #dvp .dvl{max-height:30dvh}#dvp .dvl2{max-height:24dvh}
@@ -689,6 +694,7 @@ function fLv(f){return Math.max(1,Math.min(3,Math.floor(f.lv)))}
 function tkMul(o){return Math.max(4,10+5*((o.mil||1)-1))*(1+.35*((o.mil||1)-1))*lvB(o)}
 function fortDps(o,f){return tkMul(o)*.3*GK[3].d*FORT.n[fLv(f)-1]*FORT_ATK*CFG.fatk*CFG.atk}
 function fortMaxHp(o,f){return tkMul(o)*8*GK[3].h*FORT.h[fLv(f)-1]*CFG.fhp}
+function fortKeepHp(o,f,fn){var m0=fortMaxHp(o,f),h0=f.hp==null?1:f.hp;fn();var m1=fortMaxHp(o,f);f.hp=m1>0?Math.min(1,h0*m0/m1):h0}/* 改築してもHPは回復しない（実HPを保つ） */
 function fortR(f){return FORT.r[fLv(f)-1]*CFG.rng}
 function fortOn(f){return!!f&&f.t==="fo"&&f.b>=1&&!f.ds&&(f.hp==null||f.hp>0)}
 function fortRe(f){return cfgCost(50+40*fLv(f))}
@@ -709,7 +715,7 @@ function fzFire(x,y,lv,ex,ey,sea){var k=fzKey(x,y),now=performance.now()/1000,a=
 function fortBar(X,y,wd,r){ctx.fillStyle="rgba(0,0,0,.45)";ctx.fillRect(X-wd/2,y,wd,4);ctx.fillStyle=r>.5?"#30a46c":r>.25?"#e8a317":"#e5484d";ctx.fillRect(X-wd/2,y,wd*Math.max(0,r),4);ctx.strokeStyle="rgba(0,0,0,.6)";ctx.lineWidth=1;ctx.strokeRect(X-wd/2,y,wd,4)}
 function renoAct(o){var hs=selObj(o);if(!hs)return;
   if(hs.t==="fo"&&hs.ds){var rr=fortRe(hs);if(o.pw>=rr){o.pw-=rr;hs.ds=0;hs.b=0;hs.rb=1;hs.hp=1;for(var fj=0;fj<4;fj++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(o.name+"の要塞の再建築が始まった（1分）")}return}
-  if(canReno(o,hs)){var rc=upCost(hs);if(o.pw>=rc){o.pw-=rc;hs.lv=Math.floor(hs.lv)+1;if(hs.t==="fo")hs.hp=1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(selName(hs)+"がLv"+hs.lv+"に改築された")}}}
+  if(canReno(o,hs)){var rc=upCost(hs);if(o.pw>=rc){o.pw-=rc;if(hs.t==="fo")fortKeepHp(o,hs,function(){hs.lv=Math.floor(hs.lv)+1});else hs.lv=Math.floor(hs.lv)+1;for(var fi=0;fi<4;fi++)fxSmoke(hs.x,hs.y,"150,130,100",.4,3,12,.9,8,6);say(selName(hs)+"がLv"+hs.lv+"に改築された")}}}
 function fsz(h){return h.t==="c"?30+9*h.lv:h.t==="fo"?34+7*h.lv:h.t?18+3*h.lv:14+3.4*h.lv}
 var FT={c:{n:"城",e:"",cap:castleCap,base:60,step:40,ub:60,us:50,rate:0},f:{n:"農地",e:"",cap:function(o){return 2+(o.civ||1)},base:25,step:5,ub:20,us:12,rate:.3},m:{n:"鉱山",e:"",cap:function(o){return 1+(o.civ||1)},base:35,step:7,ub:30,us:15,rate:.5},fo:{n:"要塞",e:"",cap:fortCap,base:90,step:25,ub:80,us:50,rate:0}};
 function facs(o,t){return(o.fac||[]).filter(function(f){return f.t===t})}
@@ -738,7 +744,7 @@ function autoHouse(o){var H=o.houses||[],F=o.fac=o.fac||[],lo=null,bl=0;
      低レベル順に貯めて改築し、国力の上限(200)に届かず永久に買えない物は飛ばして次へ進む */
   var cand=H.concat(F).filter(function(h){return h.b>=1&&canReno(o,h)}).sort(function(a,c){return a.lv-c.lv});
   for(var ci=0;ci<cand.length;ci++){var cu=cand[ci],cc=upCost(cu);if(cc>200)continue;
-    if(o.pw>=Math.min(cc+40,200)&&o.pw>=cc){o.pw-=cc;cu.lv=Math.floor(cu.lv)+1;if(cu.t==="fo")cu.hp=1;return}
+    if(o.pw>=Math.min(cc+40,200)&&o.pw>=cc){o.pw-=cc;if(cu.t==="fo")fortKeepHp(o,cu,function(){cu.lv=Math.floor(cu.lv)+1});else cu.lv=Math.floor(cu.lv)+1;return}
     break}}
 function houseAt(p){var k=Math.max(.28,Math.min(1.1,view.s)),best=null;
   objs.forEach(function(o){if(!o.founded)return;(o.houses||[]).concat(o.fac||[]).forEach(function(h){var s=w2s([h.x,h.y]),w=fsz(h)*k,hh=h.t==="c"?w*1.5:h.t==="fo"?w*1.1:h.t?w*.85:w*(.55+.04*Math.floor(h.lv))+w*.45;
@@ -1498,6 +1504,10 @@ function drawWl(){var p=$("wlp");if(!p.classList.contains("show"))return;var b=p
   p.innerHTML='<h4>戦況ログ<button id="wlc">クリア</button></h4><div class="wb">'+(wlog.length?wlog.map(function(e){return'<div class="wr '+e.k+'"><i>'+e.t+'</i>'+esc(e.m)+'</div>'}).join(""):'<div class="lbl">まだ戦いはありません</div>')+'</div>';
   b=p.querySelector(".wb");b.scrollTop=st?b.scrollHeight:old}
 function landAt(x,y){var p=[x,y];for(var i=objs.length-1;i>=0;i--)if(pip(p,objs[i].pts))return objs[i];return null}
+/* ===== 船は必ず水面にいる：陸との接触判定・最寄りの水面／陸地・海岸沿いの迂回 ===== */
+function segLand(x,y,nx,ny){var d=Math.hypot(nx-x,ny-y),n=Math.max(1,Math.ceil(d/4)),i,px,py,L;for(i=1;i<=n;i++){px=x+(nx-x)*i/n;py=y+(ny-y)*i/n;L=landAt(px,py);if(L)return[px,py,L]}return null}/* 線分上で最初に陸に触れた点（細い陸地の飛び越え防止） */
+function nearestWhere(x,y,wantLand,R,ax,ay){var best=null,bd=1e9,r,j,n,a,px,py,d;for(r=1.5;r<=R;r*=1.35){n=Math.min(32,Math.max(8,Math.round(r*.7)));for(j=0;j<n;j++){a=j/n*6.2832;px=x+Math.cos(a)*r;py=y+Math.sin(a)*r;if(!!landAt(px,py)===!!wantLand){d=ax==null?0:Math.hypot(ax-px,ay-py);if(!best||d<bd){bd=d;best=[px,py]}}}if(best)return best}return null}
+function seaSteer(u,a,st,tx,ty){var of=[.4,-.4,.8,-.8,1.2,-1.2,1.6,-1.6],bst=null,bd=1e9,s2=Math.max(st,2),j,mx,my,d;for(j=0;j<of.length;j++){mx=u.x+Math.cos(a+of[j])*s2;my=u.y+Math.sin(a+of[j])*s2;if(!segLand(u.x,u.y,mx,my)){d=Math.hypot(tx-mx,ty-my);if(d<bd){bd=d;bst=[mx,my]}}}return bst}
 function nearest(u,a){var b=null,bd=1e9;a.forEach(function(e){var d=Math.hypot(e.x-u.x,e.y-u.y);if(d<bd){bd=d;b=e}});return b}
 function mkUnits(w,o,sd){assign(o,true);var nd=nDiv(o),dep={},P=o.people||[];
   for(var i=0;i<nd;i++){if(!dvAlive(o,i))continue;(function(i){var M=P.filter(function(q){return q.s&&q.d===i}),Lq=M.filter(function(q){return q.L})[0]||M[0]||spawn(o),men=M.length,str=Math.max(4,men)*(1+.35*(o.mil-1))*lvB(o);
@@ -1801,9 +1811,15 @@ function warStep(w,dt){
     u.sk=(u.sk||0)+dt;if(u.sk>=4){if(u.sx!=null&&!u.eng&&u.m==="land"&&u.tg&&!(u.esc>0)&&Math.hypot(u.tg.x-u.x,u.tg.y-u.y)>=3&&Math.hypot(u.x-u.sx,u.y-u.sy)<3){var PP=sidePeople(u.sd);if(PP.length){var DD=PP[Math.floor(Math.random()*PP.length)];u.esc=4;u.et={x:DD.x,y:DD.y}}}u.sx=u.x;u.sy=u.y;u.sk=0}
     if(u.esc>0){u.esc-=dt;u.tg=u.et}
     if(u.m==="build"){fxBuild(u);u.bt+=dt;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;setShip(u,shipOf(O,u.i));wl(w,u.name+"が"+SHIP[u.sh].n+"で出港","sea")}return}
+    if(u.m==="sea"&&!u.sw){if(landAt(u.x,u.y)){var wp0=nearestWhere(u.x,u.y,false,90,u.tg?u.tg.x:null,u.tg?u.tg.y:null);if(wp0){u.x=wp0[0];u.y=wp0[1];u.sw=true}else{u.m="land";u.sw=false;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);sea=false}}else u.sw=true}/* 船が陸の上にいたら（出港直後など）最寄りの水面へ出す */
     if(!u.tg)return;var tx=u.tg.x,ty=u.tg.y;if(Math.hypot(tx-u.x,ty-u.y)<3)return;
     var sp=w.sp*(sea?(u.spf||1.5):GK[u.gk|0].s)*.5*dt*CFG.spd,a=Math.atan2(ty-u.y,tx-u.x),nx=u.x+Math.cos(a)*sp,ny=u.y+Math.sin(a)*sp;
-    if(sea){u.x=nx;u.y=ny;fxWake(u);var ld=landAt(nx,ny);if(!ld){u.sw=true;if(u.tg.m!=="sea"&&Math.hypot(tx-nx,ty-ny)<18){u.m="land";u.sw=false;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+E.name+"の海岸に上陸","land")}}else if(ld&&(u.sw||(u.lt=(u.lt||0)+dt)>5)){u.m="land";u.sw=false;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+(root(ld)===root(E)?E.name+"に":"")+"上陸","land")}else if(!ld)u.lt=0}
+    if(sea){var sh=segLand(u.x,u.y,nx,ny),tL=u.tg.m!=="sea";
+      if(!sh){u.x=nx;u.y=ny;fxWake(u);u.sw=true;u.sq=0;
+        if(tL&&Math.hypot(tx-nx,ty-ny)<18){var lp=nearestWhere(nx,ny,true,26,tx,ty);if(lp){u.x=lp[0];u.y=lp[1];u.m="land";u.sw=false;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+E.name+"の海岸に上陸","land")}}}
+      else{var alt=null;if(!tL&&(u.sq=(u.sq||0)+dt)<6)alt=seaSteer(u,a,sp,tx,ty);/* 目標が海の船：陸に当たったら海岸沿いに迂回 */
+        if(alt){u.x=alt[0];u.y=alt[1];fxWake(u)}
+        else{u.x=sh[0];u.y=sh[1];u.m="land";u.sw=false;u.sq=0;u.lt=0;u.lg=5;setShip(u,null);fxSplash(u.x,u.y);wl(w,u.name+"が"+(root(sh[2])===root(E)?E.name+"に":"")+"上陸","land")}}}
     else if(landAt(nx,ny)){u.x=nx;u.y=ny;u.lg=0;if((u.gk|0)>=2)fxDust(u)}
     else if(u.lg>0){u.x=nx;u.y=ny}
     else if(O.civ>=3){u.m="build";u.bt=0;wl(w,u.name+"が海岸で造船を開始（文明Lv"+O.civ+"）","sea")}
@@ -1968,10 +1984,14 @@ function peaceW(){var U=[],seen={},inWar={};/* 戦場にいる師団は平時用
       /* 戦争と同じ：陸から海へ出るときは海岸で造船（8秒）→出港。船で進み、陸地に着いたら上陸する。文明Lv3未満は造船できず海を渡れない */
       if(u.m==="build"){fxBuild(u);u.bt+=k1;if(u.bt>=8){u.m="sea";u.sw=false;u.bt=0;u.lt=0}}
       else if(u.m==="sea"){
-        if(ddd>.5){var shk=SHIP[shipOf(o,i)]||SHIP.nm,sst=Math.min(ddd,12*shk.s*k1),sx=u.x+ddx/ddd*sst,sy=u.y+ddy/ddd*sst,sld=landAt(sx,sy);u.x=sx;u.y=sy;ddd-=sst;fxWake(u);
-          if(!sld){u.sw=true;u.lt=0}
-          if(!tSea&&((!sld&&ddd<18)||(sld&&(u.sw||(u.lt=(u.lt||0)+k1)>5)))){u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}
-        else if(!tSea){u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}
+        if(!u.sw){if(landAt(u.x,u.y)){var wq=nearestWhere(u.x,u.y,false,90,tx,ty);if(wq){u.x=wq[0];u.y=wq[1];u.sw=true;ddx=tx-u.x;ddy=ty-u.y;ddd=Math.hypot(ddx,ddy)}else{u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}else u.sw=true}
+        if(u.m==="sea"){
+          if(ddd>.5){var shk=SHIP[shipOf(o,i)]||SHIP.nm,sst=Math.min(ddd,12*shk.s*k1),sx=u.x+ddx/ddd*sst,sy=u.y+ddy/ddd*sst,hh=segLand(u.x,u.y,sx,sy);
+            if(!hh){u.x=sx;u.y=sy;ddd-=sst;fxWake(u);u.sq=0;
+              if(!tSea&&ddd<18){var lq=nearestWhere(u.x,u.y,true,26,tx,ty);if(lq){u.x=lq[0];u.y=lq[1];u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y);ddd=Math.hypot(tx-u.x,ty-u.y)}}}
+            else if(!tSea){u.x=hh[0];u.y=hh[1];u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y);ddd=Math.hypot(tx-u.x,ty-u.y)}
+            else{var al=((u.sq=(u.sq||0)+k1)<6)?seaSteer(u,Math.atan2(ddy,ddx),sst,tx,ty):null;if(al){u.x=al[0];u.y=al[1];fxWake(u);ddd=Math.hypot(tx-u.x,ty-u.y)}}}/* 海域への配備：陸は突っ切らず迂回（通れなければその場で待つ） */
+          else if(!tSea){u.m="land";u.sw=false;u.lt=0;u.lg=5;fxSplash(u.x,u.y)}}}
       else if(ddd>.5){
         var lst=Math.min(ddd,12*GK[gkOf(o,i)|0].s*k1),lnx=u.x+ddx/ddd*lst,lny=u.y+ddy/ddd*lst;
         if(landAt(lnx,lny)){u.x=lnx;u.y=lny;ddd-=lst;u.lg=0;u.bk=0}
